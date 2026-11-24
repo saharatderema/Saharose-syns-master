@@ -10,6 +10,8 @@
 | ไฟล์ / โฟลเดอร์ | รายละเอียด |
 |---|---|
 | `requirements.txt` | รายการไลบรารีที่ต้องติดตั้ง |
+| `app_paths.py` | แยก path ของทรัพยากรที่ bundle กับไฟล์ config/log ที่เขียนได้ |
+| `config.example.json` | ค่าเริ่มต้นที่ไม่มี credentials ใช้สร้าง config ภายนอกครั้งแรก |
 | `config.json` | ไฟล์ตั้งค่าการเชื่อมต่อฐานข้อมูล, รพ.สต., การแจ้งเตือน และกำหนดเวลา |
 | `sql/extract_person.sql` | คำสั่ง SQL สำหรับดึงข้อมูลจากตาราง person ของ JHCIS |
 | `table_setup_hostatom.sql` | คำสั่ง SQL สำหรับสร้างตาราง central_person บน HostAtom |
@@ -19,7 +21,9 @@
 | `setup_hostatom_db.sql` | สร้าง `store_person`, `real_person` และ `sp_merge_person` บน HostAtom |
 | `notifier.py` | โมดูลส่งแจ้งเตือนผ่าน Telegram Bot API และ LINE Messaging API |
 | `main.py` | หน้าต่างโปรแกรม GUI (Tkinter / ttk) |
-| `build_exe.bat` | สคริปต์แปลงเป็นไฟล์ `.exe` ด้วย PyInstaller |
+| `build.bat` | สร้างแอปแบบ onedir ด้วย PyInstaller |
+| `build_exe.bat` | คำสั่งรองรับชื่อสคริปต์ Build เดิม เรียก `build.bat` |
+| `installer.iss` | Inno Setup script สำหรับสร้าง `Setup_SAHARoseSyncMaster.exe` |
 | `sync.log` | ไฟล์บันทึกเหตุการณ์และข้อผิดพลาด (สร้างอัตโนมัติ) |
 
 ---
@@ -41,7 +45,7 @@ pip install -r requirements.txt
 แพ็กเกจ `customtkinter` เป็นไลบรารี UI หลัก (ติดตั้งแยกได้ด้วย `pip install customtkinter`)
 และจัดการ High DPI scaling อัตโนมัติบน Windows
 
-หรือใช้ไฟล์ `build_exe.bat` ซึ่งจะสร้าง venv และติดตั้งแพ็กเกจให้โดยอัตโนมัติ
+หรือใช้ไฟล์ `build.bat` ซึ่งจะสร้าง venv และติดตั้งแพ็กเกจให้โดยอัตโนมัติ
 
 ## ขั้นตอนที่ 2: ตั้งค่าฝั่ง HostAtom (DirectAdmin + phpMyAdmin)
 
@@ -187,7 +191,7 @@ python main.py
 
 ### รันในโหมด .exe (หลังจาก Build)
 ```powershell
-.\dist\SAHARose_Sync_Master.exe
+.\dist\SAHARoseSyncMaster\SAHARoseSyncMaster.exe
 ```
 
 หน้าต่างหลักใช้ CustomTkinter สำหรับ UI สไตล์ Modern และเลือกฟอนต์ภาษาไทยที่ติดตั้งอยู่ตามลำดับ
@@ -214,26 +218,42 @@ CustomTkinter จัดการ High DPI scaling โดยอัตโนมั
 - **hospitals[].ip**: IP ของ รพ.สต. ในวง Radmin VPN (รูปแบบ `26.x.x.x`)
 - **hospitals[].selected**: `true` = เลือกไว้ในรายการเริ่มต้น, `false` = ไม่เลือก
 
-## ขั้นตอนที่ 6: Build เป็นไฟล์ .exe
+## ขั้นตอนที่ 6: Build และสร้าง Windows Installer
 
-รันไฟล์ `build_exe.bat` โดยการดับเบิลคลิก หรือรันผ่าน Command Prompt:
+### 6.1 Build โปรแกรม
+
+ติดตั้ง Python 3.10 ขึ้นไป แล้วรัน `build.bat` โดยดับเบิลคลิกหรือจาก Command Prompt:
 
 ```powershell
-build_exe.bat
+build.bat
 ```
 
 สคริปต์จะ:
-1. สร้าง Virtual Environment (ถ้ายังไม่มี)
-2. ติดตั้งแพ็กเกจจาก `requirements.txt`
-3. รัน PyInstaller ด้วยตัวเลือก `--onefile --windowed`
-4. แนบโฟลเดอร์ `sql` และไฟล์ `config.json` ไปกับไฟล์ `.exe`
+1. สร้าง Virtual Environment หากยังไม่มี และติดตั้งแพ็กเกจจาก `requirements.txt`
+2. รัน PyInstaller ด้วย `--onedir --windowed` และรวบรวม assets ของ CustomTkinter กับ MySQL Connector
+3. Bundle เฉพาะ `config.example.json` ซึ่งไม่มี credentials; ไม่ฝัง `config.json` ของเครื่องผู้พัฒนา
 
-หลังจาก build เสร็จ ไฟล์ `.exe` จะอยู่ที่:
+หลัง Build ไฟล์โปรแกรมอยู่ที่:
 ```
-dist\SAHARose_Sync_Master.exe
+dist\SAHARoseSyncMaster\SAHARoseSyncMaster.exe
 ```
 
-> 💡 หมายเหตุ: ไฟล์ `config.json` จะถูกแนบไปกับ `.exe` แต่แนะนำให้วางไฟล์ `config.json` ไว้ข้างๆ ไฟล์ `.exe` เพื่อให้สามารถแก้ไขการตั้งค่าได้ง่ายโดยไม่ต้อง build ใหม่
+### 6.2 สร้างตัวติดตั้ง
+
+ติดตั้ง [Inno Setup 6](https://jrsoftware.org/isinfo.php), จากนั้นเปิด `installer.iss` ด้วย Inno Setup Compiler
+แล้วกด **Compile** หรือรัน `ISCC.exe installer.iss` จากโฟลเดอร์โปรเจกต์ หลัง Build สำเร็จจะได้:
+
+```
+installer\Setup_SAHARoseSyncMaster.exe
+```
+
+ตัวติดตั้งเป็นแบบ per-user ไม่ต้องใช้สิทธิ์ Administrator และติดตั้งใต้
+`%LOCALAPPDATA%\Programs\SAHARoseSyncMaster` เพื่อให้โปรแกรมเขียน `config.json` และ `sync.log` ได้
+โดยไม่ต้องยกระดับสิทธิ์ พร้อมสร้าง Shortcut ใน Start Menu และ Desktop
+
+ไฟล์ `config.json` อยู่ในโฟลเดอร์ติดตั้งและแก้ไขได้โดยตรง; ตัวติดตั้งใช้ `config.example.json`
+สร้างไฟล์เริ่มต้นเฉพาะเมื่อยังไม่มี config และจะเก็บ config ไว้เมื่อถอนการติดตั้ง ส่วนการรัน EXE
+จาก `dist` โดยตรงจะสร้าง config จากไฟล์ตัวอย่างที่ bundle ไว้ในการเปิดครั้งแรก
 
 ---
 
@@ -328,10 +348,10 @@ dist\SAHARose_Sync_Master.exe
 
 ## หมายเหตุเพิ่มเติม
 
-- ไฟล์ `sync.log` จะถูกสร้างขึ้นในโฟลเดอร์เดียวกับโปรแกรม ใช้สำหรับตรวจสอบประวัติการทำงานและข้อผิดพลาด
+- ไฟล์ `sync.log` จะถูกสร้างในโฟลเดอร์เดียวกับ EXE ใช้สำหรับตรวจสอบประวัติการทำงานและข้อผิดพลาด
 - การซิงค์แบบ Batch Upsert ใช้ `ON DUPLICATE KEY UPDATE` หากข้อมูลซ้ำจะอัปเดตแทนที่
 - พื้นที่เก็บข้อมูลบน Shared Hosting อาจมีข้อจำกัด ให้เลือก `batch_size` ที่เหมาะสมกับแพ็กเกจ hosting ที่ใช้
-- รองรับการรันเป็น `.exe` แบบ One-file (ไม่ต้องติดตั้ง Python บนเครื่องเป้าหมาย)
+- รุ่น Deploy ใช้รูปแบบ PyInstaller `onedir` (ไม่ต้องติดตั้ง Python บนเครื่องเป้าหมาย); แจกจ่ายผ่านตัวติดตั้ง `Setup_SAHARoseSyncMaster.exe`
 
 ---
 

@@ -16,7 +16,7 @@ import sync_engine
 
 # Import UI Theme System
 from ui_theme import (
-    init_theme, Colors, FONTS, Spacing, Icons, ctk_widgets as ttk,
+    init_theme, Colors, FONTS, Spacing, VSpacing, Icons, ctk_widgets as ttk,
     create_card, create_section, create_card_section,
     create_primary_button, create_secondary_button, create_ghost_button,
     create_danger_button, create_success_button, create_warning_button,
@@ -100,7 +100,7 @@ class DistrictSyncWindow:
         self.win.rowconfigure(4, weight=2)
 
         status = create_card_section(self.win, title=f"{Icons.DATABASE} สถานะการเชื่อมต่อ", padding=Spacing.MD)
-        status.grid(row=0, column=0, sticky=tk.EW, padx=Spacing.MD, pady=(Spacing.MD, Spacing.SM))
+        status.grid(row=0, column=0, sticky=tk.EW, padx=Spacing.MD, pady=(VSpacing.MD, VSpacing.SM))
         self.district_status_var = tk.StringVar(value="MySQL อำเภอ: ยังไม่ได้ทดสอบ")
         self.hostatom_status_var = tk.StringVar(value="Cloud DB Port 3306: ยังไม่ได้ทดสอบ")
         create_muted_label(status, textvariable=self.district_status_var).pack(side=tk.LEFT, padx=Spacing.SM)
@@ -110,7 +110,7 @@ class DistrictSyncWindow:
         self.btn_test_connections.pack(side=tk.RIGHT, padx=Spacing.SM)
 
         controls = create_card_section(self.win, title=f"{Icons.PIPELINE} ควบคุมการซิงค์", padding=Spacing.MD)
-        controls.grid(row=1, column=0, sticky=tk.EW, padx=Spacing.MD, pady=Spacing.SM)
+        controls.grid(row=1, column=0, sticky=tk.EW, padx=Spacing.MD, pady=VSpacing.SM)
         self.btn_manual_sync = create_primary_button(
             controls,
             text="🚀 เริ่มซิงค์ข้อมูลที่เลือก (Manual)",
@@ -125,7 +125,7 @@ class DistrictSyncWindow:
         create_muted_label(controls, textvariable=self.schedule_status_var).pack(side=tk.RIGHT, padx=Spacing.MD)
 
         table_frame = create_card_section(self.win, title=f"{Icons.TABLE} รายการซิงค์จาก sql_mapping", padding=Spacing.MD)
-        table_frame.grid(row=2, column=0, sticky=tk.NSEW, padx=Spacing.MD, pady=Spacing.SM)
+        table_frame.grid(row=2, column=0, sticky=tk.NSEW, padx=Spacing.MD, pady=VSpacing.SM)
         table_frame.rowconfigure(0, weight=1)
         table_frame.columnconfigure(0, weight=1)
         columns = (
@@ -158,7 +158,7 @@ class DistrictSyncWindow:
         self.mapping_tree.bind("<Double-1>", lambda event: self._open_mapping_manager())
 
         progress_frame = create_card_section(self.win, title=f"{Icons.CHART} Progress", padding=Spacing.MD)
-        progress_frame.grid(row=3, column=0, sticky=tk.EW, padx=Spacing.MD, pady=Spacing.SM)
+        progress_frame.grid(row=3, column=0, sticky=tk.EW, padx=Spacing.MD, pady=VSpacing.SM)
         progress_frame.columnconfigure(0, weight=1)
         self.progress_value = tk.DoubleVar(value=0)
         self.progressbar = create_progressbar(
@@ -171,7 +171,7 @@ class DistrictSyncWindow:
         )
 
         log_frame = create_card_section(self.win, title=f"{Icons.LOG} Progress & Live Log", padding=Spacing.MD)
-        log_frame.grid(row=4, column=0, sticky=tk.NSEW, padx=Spacing.MD, pady=(Spacing.SM, Spacing.MD))
+        log_frame.grid(row=4, column=0, sticky=tk.NSEW, padx=Spacing.MD, pady=(VSpacing.SM, VSpacing.MD))
         log_frame.rowconfigure(0, weight=1)
         log_frame.columnconfigure(0, weight=1)
         self.live_log = ttk.Text(
@@ -322,7 +322,7 @@ class DistrictSyncWindow:
         win.transient(self.win)
         win.grab_set()
         notebook = ctk.CTkTabview(win, corner_radius=12)
-        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         fields = {}
 
         for key, title in (
@@ -344,20 +344,20 @@ class DistrictSyncWindow:
             )
             fields[key] = {}
             for row, (name, label, value) in enumerate(field_values):
-                ttk.Label(frame, text=label).grid(row=row, column=0, sticky=tk.W, padx=4, pady=5)
+                ttk.Label(frame, text=label).grid(row=row, column=0, sticky=tk.W, padx=4, pady=2)
                 entry = ttk.Entry(frame, show="*" if name == "password" else "")
                 entry.insert(0, str(value))
                 entry.grid(
-                    row=row, column=1, sticky=tk.EW, padx=4, pady=5,
+                    row=row, column=1, sticky=tk.EW, padx=4, pady=2,
                     ipady=Spacing.XXS
                 )
                 fields[key][name] = entry
             if key == "hostatom_db":
-                ttk.Label(frame, text="Batch Size").grid(row=5, column=0, sticky=tk.W, padx=4, pady=5)
+                ttk.Label(frame, text="Batch Size").grid(row=5, column=0, sticky=tk.W, padx=4, pady=2)
                 batch_entry = ttk.Entry(frame)
                 batch_entry.insert(0, str(current.get("batch_size", 500)))
                 batch_entry.grid(
-                    row=5, column=1, sticky=tk.EW, padx=4, pady=5,
+                    row=5, column=1, sticky=tk.EW, padx=4, pady=2,
                     ipady=Spacing.XXS
                 )
                 fields[key]["batch_size"] = batch_entry
@@ -392,7 +392,7 @@ class DistrictSyncWindow:
             self._refresh_mappings()
 
         buttons = ttk.Frame(win)
-        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=(0, Spacing.MD))
+        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=(0, VSpacing.MD))
         create_primary_button(buttons, text=f"{Icons.SAVE} บันทึก", command=save_settings).pack(side=tk.LEFT, padx=Spacing.SM)
         create_ghost_button(buttons, text=f"{Icons.CLOSE} ปิด", command=win.destroy).pack(side=tk.RIGHT, padx=Spacing.SM)
         win.wait_window(win)
@@ -405,7 +405,7 @@ class DistrictSyncWindow:
         win.grab_set()
 
         list_frame = create_card_section(win, title=f"{Icons.TABLE} รายการ Mapping ใน sql_mapping", padding=Spacing.MD)
-        list_frame.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(Spacing.MD, Spacing.SM))
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(VSpacing.MD, VSpacing.SM))
         list_frame.rowconfigure(0, weight=1)
         list_frame.columnconfigure(0, weight=1)
         columns = ("code", "name", "source", "staging", "procedure", "active")
@@ -426,7 +426,7 @@ class DistrictSyncWindow:
         list_scroll.grid(row=0, column=1, sticky=tk.NS)
 
         form = create_card_section(win, title=f"{Icons.EDIT} เพิ่ม / แก้ไข Mapping", padding=Spacing.MD)
-        form.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=Spacing.SM)
+        form.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=VSpacing.SM)
         form.columnconfigure(1, weight=1)
         form.columnconfigure(3, weight=1)
         entry_defs = (
@@ -439,32 +439,32 @@ class DistrictSyncWindow:
         )
         entries = {}
         for key, label, row, column in entry_defs:
-            create_muted_label(form, text=label).grid(row=row, column=column, sticky=tk.W, padx=Spacing.SM, pady=Spacing.SM)
+            create_muted_label(form, text=label).grid(row=row, column=column, sticky=tk.W, padx=Spacing.SM, pady=VSpacing.SM)
             entry = ttk.Entry(form)
             entry.grid(
                 row=row, column=column + 1, sticky=tk.EW,
-                padx=Spacing.SM, pady=Spacing.SM, ipady=Spacing.XXS
+                padx=Spacing.SM, pady=VSpacing.SM, ipady=Spacing.XXS
             )
             entries[key] = entry
         active_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(form, text=f"{Icons.CHECK} เปิดใช้งาน", variable=active_var).grid(
-            row=2, column=4, sticky=tk.W, padx=Spacing.SM, pady=Spacing.SM
+            row=2, column=4, sticky=tk.W, padx=Spacing.SM, pady=VSpacing.SM
         )
         create_muted_label(
             form,
             text="SQL SELECT จาก JHCIS (jhcis_extract_sql; ตั้งชื่อคอลัมน์ให้ตรงกับ district_table)"
         ).grid(
-            row=3, column=0, columnspan=5, sticky=tk.W, padx=Spacing.SM, pady=(Spacing.MD, Spacing.XS)
+            row=3, column=0, columnspan=5, sticky=tk.W, padx=Spacing.SM, pady=(VSpacing.MD, VSpacing.XS)
         )
         sql_text = ttk.Text(form, height=7, wrap=tk.NONE, font=FONTS["MONO"])
-        sql_text.grid(row=4, column=0, columnspan=5, sticky=tk.NSEW, padx=Spacing.SM, pady=Spacing.SM)
+        sql_text.grid(row=4, column=0, columnspan=5, sticky=tk.NSEW, padx=Spacing.SM, pady=VSpacing.SM)
         sql_text.edit_modified(False)
         form.rowconfigure(4, weight=1)
         selected_id = {"value": None}
         status_var = tk.StringVar(value="")
         tested_sql = {"value": None}
         create_muted_label(form, textvariable=status_var, anchor=tk.W).grid(
-            row=5, column=0, columnspan=5, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+            row=5, column=0, columnspan=5, sticky=tk.EW, padx=Spacing.SM, pady=VSpacing.SM
         )
 
         def clear_test_status(event):
@@ -622,7 +622,7 @@ class DistrictSyncWindow:
 
         tree.bind("<<TreeviewSelect>>", load_selected)
         buttons = ttk.Frame(win)
-        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=(0, Spacing.MD))
+        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=(0, VSpacing.MD))
         create_ghost_button(
             buttons,
             text=f"{Icons.COPY} Copy Mapping",
@@ -896,15 +896,15 @@ class DistrictSyncWindow:
         enabled_var = tk.BooleanVar(value=current.get("enabled", False))
         notify_var = tk.BooleanVar(value=current.get("notify_on_auto", True))
         ttk.Checkbutton(win, text="เปิดใช้งาน Auto-Sync", variable=enabled_var).pack(
-            anchor=tk.W, padx=12, pady=(12, 4)
+            anchor=tk.W, padx=12, pady=(6, 2)
         )
         ttk.Label(win, text="เวลาซิงค์ (HH:MM)").pack(anchor=tk.W, padx=12)
         times_list = ttk.Listbox(win, height=8)
-        times_list.pack(fill=tk.X, padx=12, pady=4)
+        times_list.pack(fill=tk.X, padx=12, pady=2)
         for sync_time in current.get("sync_times", ["12:00", "17:00"]):
             times_list.insert(tk.END, sync_time)
         time_input = ttk.Entry(win, width=12)
-        time_input.pack(anchor=tk.W, padx=12, pady=3, ipady=Spacing.XXS)
+        time_input.pack(anchor=tk.W, padx=12, pady=1, ipady=Spacing.XXS)
 
         def add_time():
             value = time_input.get().strip()
@@ -923,14 +923,14 @@ class DistrictSyncWindow:
                 times_list.delete(selection[0])
 
         time_buttons = ttk.Frame(win)
-        time_buttons.pack(fill=tk.X, padx=10, pady=2)
+        time_buttons.pack(fill=tk.X, padx=10, pady=1)
         ttk.Button(time_buttons, text="เพิ่มเวลา", command=add_time).pack(side=tk.LEFT, padx=3)
         ttk.Button(time_buttons, text="ลบเวลาที่เลือก", command=remove_time).pack(side=tk.LEFT, padx=3)
         ttk.Checkbutton(
             win,
             text="แจ้งผลผ่าน Telegram / LINE เมื่อ Auto-Sync เสร็จ",
             variable=notify_var
-        ).pack(anchor=tk.W, padx=12, pady=10)
+        ).pack(anchor=tk.W, padx=12, pady=5)
 
         def save_schedule():
             times = list(times_list.get(0, tk.END))
@@ -963,7 +963,7 @@ class DistrictSyncWindow:
             win.destroy()
 
         buttons = ttk.Frame(win)
-        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=Spacing.MD)
+        buttons.pack(fill=tk.X, padx=Spacing.MD, pady=VSpacing.MD)
         create_primary_button(buttons, text=f"{Icons.SAVE} บันทึก", command=save_schedule).pack(side=tk.LEFT, padx=Spacing.SM)
         create_ghost_button(buttons, text=f"{Icons.CLOSE} ปิด", command=win.destroy).pack(side=tk.RIGHT, padx=Spacing.SM)
         win.wait_window(win)

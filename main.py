@@ -20,8 +20,10 @@ import threading
 import time
 from datetime import datetime
 
+from app_paths import get_app_dir
+
 if getattr(sys, "frozen", False):
-    os.chdir(os.path.dirname(sys.executable))
+    os.chdir(get_app_dir())
 
 try:
     import schedule
@@ -45,7 +47,7 @@ from sync_engine import (
     get_sql_mappings, save_sql_mapping, delete_sql_mapping,
     inspect_jhcis_select_columns, execute_generated_ddl,
     run_sync_task, sync_jhcis_to_district,
-    log_info, log_error, resource_path
+    log_info, log_error
 )
 from ddl_generator import (
     SUPPORTED_COLUMN_TYPES, generate_mapping_scripts, suggested_column_type
@@ -57,7 +59,7 @@ from district_sync_ui import DistrictSyncWindow
 from ui_theme import (
     init_theme, setup_default_fonts, ctk_widgets as ttk,
     ContentStack, FONTS,
-    SidebarNavigation, ToastManager, Colors, Spacing, Icons,
+    SidebarNavigation, ToastManager, Colors, Spacing, VSpacing, Icons,
     create_card, create_section, create_card_section,
     create_primary_button, create_secondary_button, create_ghost_button,
     create_danger_button, create_success_button, create_warning_button,
@@ -68,6 +70,7 @@ from ui_theme import (
 )
 
 CONFIG_FILE = "config.json"
+APP_VERSION = "1.0.0"
 PERSON_MAPPING_FIELDS = (
     "pcucodeperson",
     "pid",
@@ -142,7 +145,10 @@ def _set_windows_startup(enabled):
 class JHCISPersonSyncApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("SAHARose Sync Master (ระบบลิงค์ข้อมูลอัตโนมัติ)")
+        self.root.title(
+            f"SAHARose Sync Master - Version {APP_VERSION} "
+            "(ระบบลิงค์ข้อมูลอัตโนมัติ)"
+        )
         minimum_width = min(960, max(320, self.root.winfo_screenwidth() - 40))
         minimum_height = min(620, max(240, self.root.winfo_screenheight() - 60))
         self.root.minsize(minimum_width, minimum_height)
@@ -151,7 +157,7 @@ class JHCISPersonSyncApp:
         # Initialize UI Theme System
         self.theme = init_theme(root)
 
-        self.config_path = resource_path(CONFIG_FILE)
+        self.config_path = os.path.join(get_app_dir(), CONFIG_FILE)
         self.config = self._load_config_safe()
         self.config.setdefault("district_sync_schedule", {
             "enabled": False, "sync_times": ["12:00", "17:00"], "notify_on_auto": True
@@ -237,7 +243,7 @@ class JHCISPersonSyncApp:
         """App-specific custom styles - base styles are handled by ui_theme"""
         style = ttk.Style()
         # App-specific treeview style for hospital list
-        style.configure("Hospital.Treeview", rowheight=34, font=FONTS["BODY"])
+        style.configure("Hospital.Treeview", rowheight=27, font=FONTS["BODY"])
         style.configure("Hospital.Treeview.Heading", font=FONTS["H3"])
         
         # Custom status indicator styles for VPN status
@@ -248,7 +254,7 @@ class JHCISPersonSyncApp:
 
     def _setup_ui(self):
         app_shell = ttk.Frame(self.root, style="App.TFrame")
-        app_shell.pack(fill=tk.BOTH, expand=True, padx=Spacing.SM, pady=Spacing.SM)
+        app_shell.pack(fill=tk.BOTH, expand=True, padx=Spacing.SM, pady=VSpacing.SM)
         app_shell.rowconfigure(0, weight=1)
         app_shell.columnconfigure(1, weight=1)
 
@@ -306,10 +312,10 @@ class JHCISPersonSyncApp:
         top_frame = ttk.LabelFrame(
             settings_content, text="⚙️ การตั้งค่าและเครื่องมือ", padding=10
         )
-        top_frame.pack(fill=tk.X, padx=10, pady=10)
+        top_frame.pack(fill=tk.X, padx=10, pady=5)
 
         btn_row1 = ttk.Frame(top_frame)
-        btn_row1.pack(fill=tk.X, pady=2)
+        btn_row1.pack(fill=tk.X, pady=1)
 
         ttk.Button(btn_row1, text="🏥 จัดการรายชื่อ รพ.สต.",
                    command=self._open_hospital_manager).pack(side=tk.LEFT, padx=5)
@@ -324,7 +330,7 @@ class JHCISPersonSyncApp:
         district_frame = ttk.LabelFrame(
             top_frame, text="ตั้งค่าฐานข้อมูลอำเภอ (MySQL)", padding=5
         )
-        district_frame.pack(fill=tk.X, pady=5)
+        district_frame.pack(fill=tk.X, pady=2)
         district_fields_frame = ttk.Frame(district_frame)
         district_fields_frame.pack(fill=tk.X)
         for column in range(2):
@@ -352,7 +358,7 @@ class JHCISPersonSyncApp:
             show="*", row=2, column=0
         )
         district_actions = ttk.Frame(district_fields_frame)
-        district_actions.grid(row=2, column=1, sticky=tk.SE, padx=Spacing.XS, pady=Spacing.XS)
+        district_actions.grid(row=2, column=1, sticky=tk.SE, padx=Spacing.XS, pady=VSpacing.XS)
         self.btn_test_district_db = ttk.Button(
             district_actions, text="ทดสอบเชื่อมต่อ",
             command=self._test_district_database
@@ -365,12 +371,12 @@ class JHCISPersonSyncApp:
         self.district_db_status_var = tk.StringVar(value="")
         ttk.Label(
             district_frame, textvariable=self.district_db_status_var, anchor=tk.W
-        ).pack(fill=tk.X, padx=6, pady=(3, 0))
+        ).pack(fill=tk.X, padx=6, pady=(1, 0))
 
         hostatom_frame = ttk.LabelFrame(
             top_frame, text="ตั้งค่าฐานข้อมูล Cloud DB (HostAtom)", padding=5
         )
-        hostatom_frame.pack(fill=tk.X, pady=5)
+        hostatom_frame.pack(fill=tk.X, pady=2)
         hostatom_fields_frame = ttk.Frame(hostatom_frame)
         hostatom_fields_frame.pack(fill=tk.X)
         for column in range(2):
@@ -415,14 +421,14 @@ class JHCISPersonSyncApp:
         self.hostatom_db_status_var = tk.StringVar(value="")
         ttk.Label(
             hostatom_frame, textvariable=self.hostatom_db_status_var, anchor=tk.W
-        ).pack(fill=tk.X, padx=6, pady=(3, 0))
+        ).pack(fill=tk.X, padx=6, pady=(1, 0))
 
         # === แถบควบคุมการทำงาน ===
         ctrl_frame = create_card_section(control_tab, title=f"{Icons.PIPELINE} ควบคุมการทำงาน", padding=Spacing.MD)
-        ctrl_frame.pack(fill=tk.X, padx=Spacing.MD, pady=Spacing.MD)
+        ctrl_frame.pack(fill=tk.X, padx=Spacing.MD, pady=VSpacing.MD)
 
         btn_row2 = ttk.Frame(ctrl_frame)
-        btn_row2.pack(fill=tk.X, pady=Spacing.XS)
+        btn_row2.pack(fill=tk.X, pady=VSpacing.XS)
 
         self.btn_check_vpn = create_secondary_button(btn_row2, text=f"{Icons.VPN} ตรวจสอบ VPN",
                                                      command=self._check_all_vpn)
@@ -436,7 +442,7 @@ class JHCISPersonSyncApp:
                            command=self._open_auto_schedule).pack(side=tk.LEFT, padx=Spacing.SM)
 
         flow_buttons_frame = ttk.Frame(ctrl_frame)
-        flow_buttons_frame.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
+        flow_buttons_frame.pack(fill=tk.X, pady=(VSpacing.SM, VSpacing.XS))
         self.btn_jhcis_to_district = create_secondary_button(
             flow_buttons_frame,
             text=f"{Icons.DOWNLOAD} JHCIS (ลูกข่าย) → ฐานอำเภอ",
@@ -452,14 +458,14 @@ class JHCISPersonSyncApp:
 
         # สถานะ Auto-Schedule
         self.lbl_auto_status = create_muted_label(ctrl_frame, text="สถานะ Auto: ยังไม่เปิดใช้งาน")
-        self.lbl_auto_status.pack(anchor=tk.W, pady=Spacing.XS)
+        self.lbl_auto_status.pack(anchor=tk.W, pady=VSpacing.XS)
         self.chk_start_with_windows = ttk.Checkbutton(
             ctrl_frame,
             text="เปิดโปรแกรมพร้อม Windows (ผู้ใช้ปัจจุบัน)",
             variable=self.start_with_windows_var,
             command=self._toggle_windows_startup
         )
-        self.chk_start_with_windows.pack(anchor=tk.W, pady=Spacing.XS)
+        self.chk_start_with_windows.pack(anchor=tk.W, pady=VSpacing.XS)
         if winreg is None:
             self.chk_start_with_windows.state(["disabled"])
 
@@ -470,13 +476,13 @@ class JHCISPersonSyncApp:
         )
         monitor_frame.pack(
             fill=tk.BOTH, expand=True, padx=Spacing.MD,
-            pady=(0, Spacing.MD),
+            pady=(0, VSpacing.MD),
         )
         monitor_frame.rowconfigure(1, weight=1)
         monitor_frame.columnconfigure(0, weight=1)
 
         monitor_toolbar = ttk.Frame(monitor_frame)
-        monitor_toolbar.grid(row=0, column=0, sticky=tk.EW, pady=(0, Spacing.XS))
+        monitor_toolbar.grid(row=0, column=0, sticky=tk.EW, pady=(0, VSpacing.XS))
         self.process_monitor_state_var = tk.StringVar(value="พร้อมทำงาน")
         create_muted_label(
             monitor_toolbar, textvariable=self.process_monitor_state_var
@@ -500,7 +506,7 @@ class JHCISPersonSyncApp:
         )
 
         flow_frame = create_card_section(hospitals_tab, title=f"{Icons.CHART} สถานะการไหลข้อมูล", padding=Spacing.MD)
-        flow_frame.pack(fill=tk.X, padx=Spacing.MD, pady=(0, Spacing.MD))
+        flow_frame.pack(fill=tk.X, padx=Spacing.MD, pady=(0, VSpacing.MD))
         flow_frame.columnconfigure(0, weight=1)
         flow_frame.columnconfigure(1, weight=1)
         self.data_flow_status_vars = {
@@ -514,18 +520,18 @@ class JHCISPersonSyncApp:
         ):
             stage_frame = create_card_section(flow_frame, title=title, padding=Spacing.SM)
             stage_frame.grid(
-                row=0, column=column, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.XS
+                row=0, column=column, sticky=tk.EW, padx=Spacing.SM, pady=VSpacing.XS
             )
             create_muted_label(stage_frame,
                 textvariable=self.data_flow_status_vars[stage]
             ).pack(fill=tk.X)
             progress_bar = create_progressbar(stage_frame, mode="indeterminate", maximum=100)
-            progress_bar.pack(fill=tk.X, pady=(Spacing.XXS, 0))
+            progress_bar.pack(fill=tk.X, pady=(VSpacing.XXS, 0))
             self.data_flow_progress_bars[stage] = progress_bar
 
         # === ตารางแสดงผล ===
         tree_frame = create_card_section(hospitals_tab, title=f"{Icons.LIST} รายชื่อ รพ.สต. และสถานะการซิงค์", padding=Spacing.MD)
-        tree_frame.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=Spacing.MD)
+        tree_frame.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=VSpacing.MD)
 
         columns = ("select", "code", "name", "ip", "vpn", "sync")
         self.tree = create_treeview(tree_frame, columns=columns, show="headings", selectmode="browse")
@@ -559,7 +565,7 @@ class JHCISPersonSyncApp:
         self.status_var = tk.StringVar(value="พร้อมทำงาน")
         self.toast_var = tk.StringVar(value="")
         status_bar = ttk.Frame(self.root, style="Statusbar.TFrame")
-        status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=Spacing.SM, pady=(0, Spacing.SM))
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X, padx=Spacing.SM, pady=(0, VSpacing.SM))
         ttk.Label(
             status_bar, textvariable=self.status_var,
             style="Statusbar.TLabel", anchor=tk.W, padding=Spacing.SM
@@ -650,11 +656,12 @@ class JHCISPersonSyncApp:
 
     def _setup_developer_tab(self, tab):
         frame = create_card_section(tab, title=f"{Icons.INFO} ข้อมูลผู้พัฒนา", padding=Spacing.XXL)
-        frame.pack(expand=True, padx=Spacing.XXXL, pady=Spacing.XXXL)
-        create_muted_label(frame, "พัฒนาโดย").pack(pady=(0, Spacing.SM))
-        create_title_label(frame, "นายสหรัต เดเระมะ").pack(pady=Spacing.XS)
-        create_muted_label(frame, "ตำแหน่งนักวิชาการคอมพิวเตอร์ชำนาญการ").pack(pady=Spacing.XS)
-        create_muted_label(frame, "สสอ.เทพา").pack(pady=(Spacing.XS, Spacing.MD))
+        frame.pack(expand=True, padx=Spacing.XXXL, pady=VSpacing.XXXL)
+        create_muted_label(frame, "พัฒนาโดย").pack(pady=(0, VSpacing.SM))
+        create_title_label(frame, "นายสหรัต เดเระมะ").pack(pady=VSpacing.XS)
+        create_muted_label(frame, "ตำแหน่งนักวิชาการคอมพิวเตอร์ชำนาญการ").pack(pady=VSpacing.XS)
+        create_muted_label(frame, "สสอ.เทพา").pack(pady=(VSpacing.XS, VSpacing.MD))
+        create_muted_label(frame, f"Version {APP_VERSION}").pack(pady=(VSpacing.SM, 0))
 
     def _add_database_setting(
         self, parent, label, value, width, show="", row=0, column=0
@@ -662,10 +669,10 @@ class JHCISPersonSyncApp:
         field = ttk.Frame(parent)
         field.grid(
             row=row, column=column, sticky=tk.EW,
-            padx=Spacing.XS, pady=Spacing.XS
+            padx=Spacing.XS, pady=VSpacing.XS
         )
         create_muted_label(field, text=label).pack(
-            anchor=tk.W, pady=(0, Spacing.XXS)
+            anchor=tk.W, pady=(0, VSpacing.XXS)
         )
         entry = ttk.Entry(field, width=width, show=show)
         entry.insert(0, str(value))
@@ -711,7 +718,7 @@ class JHCISPersonSyncApp:
         self.mapping_save_in_progress = False
 
         toolbar = ttk.Frame(tab)
-        toolbar.pack(fill=tk.X, padx=Spacing.MD, pady=(Spacing.MD, Spacing.SM))
+        toolbar.pack(fill=tk.X, padx=Spacing.MD, pady=(Spacing.SM, Spacing.XS))
         create_muted_label(
             toolbar,
             text="SQL Mapping และตัวสร้างสคริปต์ฐานข้อมูล"
@@ -727,13 +734,14 @@ class JHCISPersonSyncApp:
         self.btn_refresh_sql_mappings.pack(side=tk.RIGHT, padx=Spacing.SM)
 
         workspace = ttk.Frame(tab)
-        workspace.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(0, Spacing.MD))
+        workspace.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(0, Spacing.SM))
         workspace.grid_rowconfigure(0, weight=1)
         workspace.grid_columnconfigure(0, weight=3, uniform="sql_mapping_columns")
         workspace.grid_columnconfigure(1, weight=7, uniform="sql_mapping_columns")
 
         list_card = create_card_section(
-            workspace, title=f"{Icons.TABLE} SQL Mapping", padding=Spacing.SM
+            workspace, title=f"{Icons.TABLE} SQL Mapping",
+            padding=(Spacing.XS, Spacing.SM)
         )
         list_card.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, Spacing.SM))
         list_card.grid_rowconfigure(1, weight=1)
@@ -744,11 +752,12 @@ class JHCISPersonSyncApp:
             command=self._add_sql_mapping,
         )
         self.btn_add_sql_mapping.grid(
-            row=0, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(Spacing.SM, 0)
+            row=0, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(Spacing.XS, 0)
         )
         columns = ("task_code", "task_name", "source", "active", "sort_order")
-        self.sql_mapping_tree = create_treeview(
-            list_card, columns=columns, show="headings", selectmode="browse"
+        self.sql_mapping_tree = ttk.Treeview(
+            list_card, columns=columns, show="headings",
+            selectmode="browse", style="Mapping.Treeview",
         )
         for column, title, width in (
             ("task_code", "รหัสงาน", 100),
@@ -773,10 +782,10 @@ class JHCISPersonSyncApp:
         )
         self.sql_mapping_tree.grid(
             row=1, column=0, sticky=tk.NSEW,
-            padx=(Spacing.SM, 0), pady=Spacing.SM
+            padx=(Spacing.XS, 0), pady=Spacing.XS
         )
-        y_scroll.grid(row=1, column=1, sticky=tk.NS, pady=Spacing.SM)
-        x_scroll.grid(row=2, column=0, sticky=tk.EW, padx=Spacing.SM)
+        y_scroll.grid(row=1, column=1, sticky=tk.NS, pady=Spacing.XS)
+        x_scroll.grid(row=2, column=0, sticky=tk.EW, padx=Spacing.XS)
         self.sql_mapping_tree.bind(
             "<<TreeviewSelect>>", self._on_sql_mapping_selection
         )
@@ -788,6 +797,29 @@ class JHCISPersonSyncApp:
             fg_color=Colors.BG_PRIMARY,
             scrollbar_button_color=Colors.GRAY_300,
         )
+        mapping_tree_style = ttk.Style(self.root)
+        mapping_tree_style.configure(
+            "Mapping.Treeview",
+            font=FONTS["BODY"],
+            rowheight=26,
+            background=Colors.WHITE,
+            fieldbackground=Colors.WHITE,
+            foreground=Colors.TEXT_PRIMARY,
+            borderwidth=0,
+        )
+        mapping_tree_style.configure(
+            "Mapping.Treeview.Heading",
+            font=FONTS["BUTTON"],
+            padding=(6, 4),
+            relief="flat",
+            background=Colors.GRAY_50,
+            foreground=Colors.TEXT_PRIMARY,
+        )
+        mapping_tree_style.map(
+            "Mapping.Treeview",
+            background=[("selected", Colors.PRIMARY_LIGHT)],
+            foreground=[("selected", Colors.PRIMARY_STRONG)],
+        )
         self.mapping_work_area.grid(row=0, column=1, sticky=tk.NSEW)
         self.mapping_work_area.grid_columnconfigure(0, weight=1)
 
@@ -796,9 +828,10 @@ class JHCISPersonSyncApp:
 
     def _build_mapping_form(self, parent):
         form_card = create_card_section(
-            parent, title="1. ข้อมูลตั้งค่า Mapping", padding=Spacing.SM
+            parent, title="1. ข้อมูลตั้งค่า Mapping",
+            padding=(Spacing.XS, Spacing.SM)
         )
-        form_card.pack(fill=tk.X, padx=Spacing.XS, pady=(Spacing.XS, Spacing.SM))
+        form_card.pack(fill=tk.X, padx=Spacing.XS, pady=(Spacing.XXS // 2, Spacing.XS))
         for column in range(4):
             form_card.grid_columnconfigure(column, weight=1)
 
@@ -817,14 +850,14 @@ class JHCISPersonSyncApp:
                 text_color=Colors.TEXT_SECONDARY, anchor="w",
             ).grid(
                 row=row * 2, column=column, sticky=tk.W,
-                padx=Spacing.SM, pady=(Spacing.SM, 0)
+                padx=Spacing.XS, pady=(Spacing.XS, 0)
             )
             entry = ctk.CTkEntry(
                 form_card, height=36, corner_radius=8, font=FONTS["BODY"]
             )
             entry.grid(
                 row=row * 2 + 1, column=column, columnspan=2, sticky=tk.EW,
-                padx=Spacing.SM, pady=(Spacing.XXS, Spacing.XS)
+                padx=Spacing.XS, pady=(Spacing.XXS // 2, Spacing.XXS // 2)
             )
             self.sql_mapping_entries[key] = entry
 
@@ -844,7 +877,7 @@ class JHCISPersonSyncApp:
             command=self._on_mapping_form_changed,
         ).grid(
             row=6, column=0, columnspan=2, sticky=tk.W,
-            padx=Spacing.SM, pady=Spacing.SM
+            padx=Spacing.XS, pady=Spacing.XS
         )
         self.mapping_form_status_var = tk.StringVar(value="เลือกรายการหรือเพิ่ม Mapping ใหม่")
         ctk.CTkLabel(
@@ -855,13 +888,13 @@ class JHCISPersonSyncApp:
             anchor="w",
         ).grid(
             row=6, column=2, columnspan=2, sticky=tk.EW,
-            padx=Spacing.SM, pady=Spacing.SM
+            padx=Spacing.XS, pady=Spacing.XS
         )
 
         form_buttons = ctk.CTkFrame(form_card, fg_color="transparent")
         form_buttons.grid(
             row=7, column=0, columnspan=4, sticky=tk.EW,
-            padx=Spacing.SM, pady=(0, Spacing.SM)
+            padx=Spacing.XS, pady=(0, Spacing.XS)
         )
         self.btn_save_sql_mapping = create_primary_button(
             form_buttons, text=f"{Icons.SAVE} บันทึก Mapping",
@@ -877,9 +910,9 @@ class JHCISPersonSyncApp:
         sql_card = create_card_section(
             parent,
             title="2. SQL ดึงข้อมูล JHCIS และโครงสร้างคอลัมน์",
-            padding=Spacing.SM,
+            padding=(Spacing.XS, Spacing.SM),
         )
-        sql_card.pack(fill=tk.X, padx=Spacing.XS, pady=(0, Spacing.SM))
+        sql_card.pack(fill=tk.X, padx=Spacing.XS, pady=(0, Spacing.XS))
         sql_card.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
             sql_card,
@@ -887,7 +920,7 @@ class JHCISPersonSyncApp:
             font=FONTS["CAPTION"],
             text_color=Colors.TEXT_SECONDARY,
             anchor="w",
-        ).grid(row=0, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(Spacing.XS, 0))
+        ).grid(row=0, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(Spacing.XXS // 2, 0))
         self.mapping_sql_text = ctk.CTkTextbox(
             sql_card,
             height=190,
@@ -897,14 +930,14 @@ class JHCISPersonSyncApp:
             border_width=1,
         )
         self.mapping_sql_text.grid(
-            row=1, column=0, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+            row=1, column=0, sticky=tk.EW, padx=Spacing.XS, pady=Spacing.XS
         )
         self.mapping_sql_text.bind(
             "<KeyRelease>", self._on_mapping_sql_changed
         )
         sql_toolbar = ctk.CTkFrame(sql_card, fg_color="transparent")
         sql_toolbar.grid(
-            row=2, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.XS)
+            row=2, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(0, Spacing.XXS // 2)
         )
         self.btn_extract_mapping_columns = create_secondary_button(
             sql_toolbar,
@@ -931,7 +964,7 @@ class JHCISPersonSyncApp:
             border_color=Colors.BORDER_LIGHT,
         )
         self.mapping_column_frame.grid(
-            row=3, column=0, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+            row=3, column=0, sticky=tk.EW, padx=Spacing.XS, pady=Spacing.XS
         )
         self.mapping_column_rows_container = ctk.CTkFrame(
             self.mapping_column_frame, fg_color="transparent"
@@ -947,28 +980,28 @@ class JHCISPersonSyncApp:
             font=FONTS["CAPTION"],
             text_color=Colors.TEXT_SECONDARY,
             anchor="w",
-        ).grid(row=4, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.XS))
+        ).grid(row=4, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(0, Spacing.XXS // 2))
         self.btn_generate_mapping_ddl = create_primary_button(
             sql_card,
             text="2. สร้างสคริปต์ SQL สร้างตาราง (Generate SQL) →",
             command=self._generate_mapping_ddl,
         )
         self.btn_generate_mapping_ddl.grid(
-            row=5, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.SM)
+            row=5, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(0, Spacing.XS)
         )
 
         output_card = create_card_section(
             parent,
             title="3. ผลลัพธ์สคริปต์ SQL พร้อมใช้งาน",
-            padding=Spacing.SM,
+            padding=(Spacing.XS, Spacing.SM),
         )
-        output_card.pack(fill=tk.BOTH, expand=True, padx=Spacing.XS, pady=(0, Spacing.XS))
+        output_card.pack(fill=tk.BOTH, expand=True, padx=Spacing.XS, pady=(0, Spacing.XXS // 2))
         output_card.grid_columnconfigure(0, weight=1)
         self.mapping_output_tabs = ctk.CTkTabview(
             output_card, corner_radius=12, height=390
         )
         self.mapping_output_tabs.grid(
-            row=0, column=0, sticky=tk.NSEW, padx=Spacing.SM, pady=Spacing.SM
+            row=0, column=0, sticky=tk.NSEW, padx=Spacing.XS, pady=Spacing.XS
         )
         output_card.grid_rowconfigure(0, weight=1)
         self.mapping_output_texts = {}
@@ -984,7 +1017,7 @@ class JHCISPersonSyncApp:
             output_tab.grid_rowconfigure(1, weight=1)
             output_toolbar = ctk.CTkFrame(output_tab, fg_color="transparent")
             output_toolbar.grid(
-                row=0, column=0, sticky=tk.EW, padx=Spacing.XS, pady=Spacing.XS
+                row=0, column=0, sticky=tk.EW, padx=Spacing.XXS // 2, pady=Spacing.XXS // 2
             )
             create_secondary_button(
                 output_toolbar, text=f"{Icons.COPY} คัดลอก (Copy)",
@@ -1011,7 +1044,7 @@ class JHCISPersonSyncApp:
             )
             output_text.grid(
                 row=1, column=0, sticky=tk.NSEW,
-                padx=Spacing.XS, pady=(0, Spacing.XS)
+                padx=Spacing.XXS // 2, pady=(0, Spacing.XXS // 2)
             )
             self.mapping_output_texts[key] = output_text
         self.mapping_ddl_status_var = tk.StringVar(value="สร้างสคริปต์เพื่อเริ่มใช้งาน")
@@ -1021,7 +1054,7 @@ class JHCISPersonSyncApp:
             font=FONTS["CAPTION"],
             text_color=Colors.TEXT_SECONDARY,
             anchor="w",
-        ).grid(row=1, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.SM))
+        ).grid(row=1, column=0, sticky=tk.EW, padx=Spacing.XS, pady=(0, Spacing.XS))
 
     def _reset_sql_mapping_form(self):
         self._cancel_mapping_column_load()
@@ -1519,6 +1552,7 @@ class JHCISPersonSyncApp:
         output_path = filedialog.asksaveasfilename(
             parent=self.root,
             title="บันทึกสคริปต์ SQL",
+            initialdir=get_app_dir(),
             initialfile=f"{task_code}_{key}.sql",
             defaultextension=".sql",
             filetypes=(("SQL files", "*.sql"), ("All files", "*.*")),
@@ -2067,14 +2101,14 @@ class JHCISPersonSyncApp:
         entries = {}
         for key, label, row, column, default in entry_defs:
             create_muted_label(form, text=label).grid(
-                row=row, column=column, sticky=tk.W, padx=Spacing.SM, pady=Spacing.SM
+                row=row, column=column, sticky=tk.W, padx=Spacing.SM, pady=VSpacing.SM
             )
             entry = ttk.Entry(form)
             value = original.get(key, default)
             entry.insert(0, "" if value is None else str(value))
             entry.grid(
                 row=row, column=column + 1, sticky=tk.EW,
-                padx=Spacing.SM, pady=Spacing.SM, ipady=Spacing.XXS
+                padx=Spacing.SM, pady=VSpacing.SM, ipady=Spacing.XXS
             )
             entries[key] = entry
 
@@ -2082,12 +2116,12 @@ class JHCISPersonSyncApp:
             value=bool(original.get("is_active", True))
         )
         ttk.Checkbutton(form, text=f"{Icons.CHECK} เปิดใช้งาน Mapping", variable=active_var).grid(
-            row=2, column=4, sticky=tk.W, padx=Spacing.SM, pady=Spacing.SM
+            row=2, column=4, sticky=tk.W, padx=Spacing.SM, pady=VSpacing.SM
         )
         create_muted_label(
             form,
             text="SQL SELECT จาก JHCIS (jhcis_extract_sql; ตั้งชื่อคอลัมน์ให้ตรงกับ district_table)"
-        ).grid(row=3, column=0, columnspan=5, sticky=tk.W, padx=Spacing.SM, pady=(Spacing.MD, Spacing.XS))
+        ).grid(row=3, column=0, columnspan=5, sticky=tk.W, padx=Spacing.SM, pady=(VSpacing.MD, VSpacing.XS))
         sql_frame = ttk.Frame(form)
         sql_frame.grid(row=4, column=0, columnspan=5, sticky=tk.NSEW, padx=Spacing.SM)
         form.rowconfigure(4, weight=1)
@@ -2112,10 +2146,10 @@ class JHCISPersonSyncApp:
         status_var = tk.StringVar(value="")
         tested_sql = {"value": None}
         create_muted_label(form, textvariable=status_var, anchor=tk.W).grid(
-            row=5, column=0, columnspan=5, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+            row=5, column=0, columnspan=5, sticky=tk.EW, padx=Spacing.SM, pady=VSpacing.SM
         )
         buttons = ttk.Frame(form)
-        buttons.grid(row=6, column=0, columnspan=5, sticky=tk.EW, pady=(Spacing.MD, 0))
+        buttons.grid(row=6, column=0, columnspan=5, sticky=tk.EW, pady=(VSpacing.MD, 0))
 
         def clear_test_status(event):
             event.widget.edit_modified(False)
@@ -2349,16 +2383,16 @@ class JHCISPersonSyncApp:
         ttk.Label(
             tab,
             text="เลือกตารางและคอลัมน์จาก JHCIS แล้วแก้ไข SQL ในช่องที่ 3 เพื่อทดสอบผลลัพธ์"
-        ).pack(anchor=tk.W, padx=8, pady=(8, 2))
+        ).pack(anchor=tk.W, padx=8, pady=(4, 1))
         ttk.Label(
             tab,
             text="Run แบบอ่านอย่างเดียว แสดงผลไม่เกิน 100 แถว ใช้ รพ.สต. ที่เลือกไว้ลำดับแรก "
             "(ถ้าไม่ได้เลือกจะใช้รายการแรก)"
-        ).pack(anchor=tk.W, padx=8, pady=(0, 6))
+        ).pack(anchor=tk.W, padx=8, pady=(0, 3))
 
         content = ttk.Frame(tab)
         self.mapping_content = content
-        content.pack(fill=tk.BOTH, expand=True, padx=8, pady=4)
+        content.pack(fill=tk.BOTH, expand=True, padx=8, pady=2)
 
         table_frame = ttk.LabelFrame(content, text="1. ตารางทั้งหมดใน JHCIS", padding=6)
         columns_frame = ttk.LabelFrame(content, text="2. คอลัมน์ของตารางที่เลือก", padding=6)
@@ -2376,7 +2410,7 @@ class JHCISPersonSyncApp:
         table_frame.rowconfigure(1, weight=1)
         table_frame.columnconfigure(0, weight=1)
         table_toolbar = ttk.Frame(table_frame)
-        table_toolbar.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 4))
+        table_toolbar.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 2))
         self.jhcis_table_status = create_muted_label(table_toolbar, text="ยังไม่ได้โหลดตาราง")
         self.jhcis_table_status.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.btn_refresh_jhcis_tables = create_small_button(
@@ -2406,7 +2440,7 @@ class JHCISPersonSyncApp:
         columns_frame.rowconfigure(1, weight=1)
         columns_frame.columnconfigure(0, weight=1)
         self.jhcis_columns_status = create_muted_label(columns_frame, text="เลือกตารางเพื่อดูคอลัมน์")
-        self.jhcis_columns_status.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 4))
+        self.jhcis_columns_status.grid(row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 2))
         self.jhcis_table_columns = create_treeview(
             columns_frame, columns=("column_name", "data_type"),
             show="headings", selectmode="browse"
@@ -2463,7 +2497,7 @@ class JHCISPersonSyncApp:
             results_frame, text="ผลลัพธ์จะแสดงหลังจากกด Run SQL"
         )
         self.person_sql_results_status.grid(
-            row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 4)
+            row=0, column=0, columnspan=2, sticky=tk.EW, pady=(0, 2)
         )
         self.person_sql_results = ttk.Treeview(
             results_frame, columns=(), show="headings"
@@ -2482,7 +2516,7 @@ class JHCISPersonSyncApp:
         results_x_scroll.grid(row=2, column=0, sticky=tk.EW)
 
         actions = ttk.Frame(tab)
-        actions.pack(fill=tk.X, padx=8, pady=(4, 8))
+        actions.pack(fill=tk.X, padx=8, pady=(2, 4))
         self.person_mapping_status = ttk.Label(actions, anchor=tk.W)
         self.person_mapping_status.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.btn_save_person_mapping = ttk.Button(actions, text="บันทึก Mapping", command=self._save_person_mapping)
@@ -2985,76 +3019,76 @@ class JHCISPersonSyncApp:
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
         form = ttk.LabelFrame(win, text="เพิ่ม / แก้ไข รพ.สต.", padding=10)
-        form.pack(fill=tk.X, padx=10, pady=5)
+        form.pack(fill=tk.X, padx=10, pady=2)
         form.columnconfigure(0, weight=1)
 
         hospital_frame = ttk.LabelFrame(form, text="ข้อมูล รพ.สต.", padding=6)
-        hospital_frame.grid(row=0, column=0, sticky=tk.EW, padx=3, pady=3)
+        hospital_frame.grid(row=0, column=0, sticky=tk.EW, padx=3, pady=1)
         for column in (1, 3):
             hospital_frame.columnconfigure(column, weight=1)
 
         ttk.Label(hospital_frame, text="รหัส:").grid(
-            row=0, column=0, sticky=tk.W, padx=4, pady=3
+            row=0, column=0, sticky=tk.W, padx=4, pady=1
         )
         ent_code = ttk.Entry(hospital_frame, width=10)
-        ent_code.grid(row=0, column=1, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_code.grid(row=0, column=1, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         ttk.Label(hospital_frame, text="ชื่อสถานพยาบาล:").grid(
-            row=0, column=2, sticky=tk.W, padx=4, pady=3
+            row=0, column=2, sticky=tk.W, padx=4, pady=1
         )
         ent_name = ttk.Entry(hospital_frame, width=36)
-        ent_name.grid(row=0, column=3, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_name.grid(row=0, column=3, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         ttk.Label(hospital_frame, text="IP (VPN):").grid(
-            row=1, column=0, sticky=tk.W, padx=4, pady=3
+            row=1, column=0, sticky=tk.W, padx=4, pady=1
         )
         ent_ip = ttk.Entry(hospital_frame, width=20)
-        ent_ip.grid(row=1, column=1, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_ip.grid(row=1, column=1, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         ttk.Label(hospital_frame, text="Port JHCIS:").grid(
-            row=1, column=2, sticky=tk.W, padx=4, pady=3
+            row=1, column=2, sticky=tk.W, padx=4, pady=1
         )
         ent_port = ttk.Entry(hospital_frame, width=8)
         ent_port.insert(0, "3333")
-        ent_port.grid(row=1, column=3, padx=4, pady=3, sticky=tk.W, ipady=Spacing.XXS)
+        ent_port.grid(row=1, column=3, padx=4, pady=1, sticky=tk.W, ipady=Spacing.XXS)
 
         jhcis_default = self.config.get("jhcis_default", {})
         database_frame = ttk.LabelFrame(
             form, text="การเชื่อมต่อฐานข้อมูล JHCIS", padding=6
         )
-        database_frame.grid(row=1, column=0, sticky=tk.EW, padx=3, pady=3)
+        database_frame.grid(row=1, column=0, sticky=tk.EW, padx=3, pady=1)
         for column in (1, 3):
             database_frame.columnconfigure(column, weight=1)
 
         ttk.Label(database_frame, text="ชื่อฐานข้อมูล:").grid(
-            row=0, column=0, sticky=tk.W, padx=4, pady=3
+            row=0, column=0, sticky=tk.W, padx=4, pady=1
         )
         ent_database = ttk.Entry(database_frame, width=24)
         ent_database.insert(0, str(jhcis_default.get("database", "jhcisdb")))
-        ent_database.grid(row=0, column=1, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_database.grid(row=0, column=1, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         ttk.Label(database_frame, text="User:").grid(
-            row=0, column=2, sticky=tk.W, padx=4, pady=3
+            row=0, column=2, sticky=tk.W, padx=4, pady=1
         )
         ent_user = ttk.Entry(database_frame, width=20)
         ent_user.insert(0, str(jhcis_default.get("user", "")))
-        ent_user.grid(row=0, column=3, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_user.grid(row=0, column=3, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         ttk.Label(database_frame, text="Password:").grid(
-            row=1, column=0, sticky=tk.W, padx=4, pady=3
+            row=1, column=0, sticky=tk.W, padx=4, pady=1
         )
         ent_password = ttk.Entry(database_frame, width=24, show="*")
         ent_password.insert(0, str(jhcis_default.get("password", "")))
-        ent_password.grid(row=1, column=1, padx=4, pady=3, sticky=tk.EW, ipady=Spacing.XXS)
+        ent_password.grid(row=1, column=1, padx=4, pady=1, sticky=tk.EW, ipady=Spacing.XXS)
 
         var_sel = tk.BooleanVar(value=True)
         chk_sel = ttk.Checkbutton(
             form, text="เลือก รพ.สต. นี้สำหรับการซิงค์", variable=var_sel
         )
-        chk_sel.grid(row=2, column=0, sticky=tk.W, padx=5, pady=4)
+        chk_sel.grid(row=2, column=0, sticky=tk.W, padx=5, pady=2)
 
         btn_frame = ttk.Frame(form)
-        btn_frame.grid(row=3, column=0, sticky=tk.EW, pady=8)
+        btn_frame.grid(row=3, column=0, sticky=tk.EW, pady=4)
 
         # ตัวแปรเก็บรหัสที่กำลังแก้ไขอยู่ (ใช้แทน ent_code.cget("data_edit") ที่ใช้ไม่ได้กับ ttk.Entry)
         editing_code = {"value": ""}
@@ -3404,38 +3438,38 @@ class JHCISPersonSyncApp:
 
         notif = self.config.get("notification", {})
 
-        ttk.Label(frm, text="Telegram Bot", font=FONTS["H3"]).pack(anchor=tk.W, pady=(10, 0))
+        ttk.Label(frm, text="Telegram Bot", font=FONTS["H3"]).pack(anchor=tk.W, pady=(5, 0))
         var_tg = tk.BooleanVar(value=notif.get("telegram_enabled", False))
         ttk.Checkbutton(frm, text="เปิดใช้งาน Telegram", variable=var_tg).pack(anchor=tk.W)
 
-        ttk.Label(frm, text="Bot Token:").pack(anchor=tk.W, pady=(5, 0))
+        ttk.Label(frm, text="Bot Token:").pack(anchor=tk.W, pady=(2, 0))
         ent_tg_token = ttk.Entry(frm, width=50)
         ent_tg_token.insert(0, notif.get("telegram_bot_token", ""))
-        ent_tg_token.pack(fill=tk.X, pady=2, ipady=Spacing.XXS)
+        ent_tg_token.pack(fill=tk.X, pady=1, ipady=Spacing.XXS)
 
-        ttk.Label(frm, text="Chat ID:").pack(anchor=tk.W, pady=(5, 0))
+        ttk.Label(frm, text="Chat ID:").pack(anchor=tk.W, pady=(2, 0))
         ent_tg_chat = ttk.Entry(frm, width=30)
         ent_tg_chat.insert(0, notif.get("telegram_chat_id", ""))
-        ent_tg_chat.pack(fill=tk.X, pady=2, ipady=Spacing.XXS)
+        ent_tg_chat.pack(fill=tk.X, pady=1, ipady=Spacing.XXS)
 
-        ttk.Separator(frm, orient="horizontal").pack(fill=tk.X, pady=10)
+        ttk.Separator(frm, orient="horizontal").pack(fill=tk.X, pady=5)
 
-        ttk.Label(frm, text="LINE Messaging API", font=FONTS["H3"]).pack(anchor=tk.W, pady=(10, 0))
+        ttk.Label(frm, text="LINE Messaging API", font=FONTS["H3"]).pack(anchor=tk.W, pady=(5, 0))
         var_line = tk.BooleanVar(value=notif.get("line_enabled", False))
         ttk.Checkbutton(frm, text="เปิดใช้งาน LINE", variable=var_line).pack(anchor=tk.W)
 
-        ttk.Label(frm, text="Channel Token:").pack(anchor=tk.W, pady=(5, 0))
+        ttk.Label(frm, text="Channel Token:").pack(anchor=tk.W, pady=(2, 0))
         ent_line_tok = ttk.Entry(frm, width=50)
         ent_line_tok.insert(0, notif.get("line_channel_token", ""))
-        ent_line_tok.pack(fill=tk.X, pady=2, ipady=Spacing.XXS)
+        ent_line_tok.pack(fill=tk.X, pady=1, ipady=Spacing.XXS)
 
-        ttk.Label(frm, text="User ID:").pack(anchor=tk.W, pady=(5, 0))
+        ttk.Label(frm, text="User ID:").pack(anchor=tk.W, pady=(2, 0))
         ent_line_user = ttk.Entry(frm, width=30)
         ent_line_user.insert(0, notif.get("line_user_id", ""))
-        ent_line_user.pack(fill=tk.X, pady=2, ipady=Spacing.XXS)
+        ent_line_user.pack(fill=tk.X, pady=1, ipady=Spacing.XXS)
 
         btn_frame = ttk.Frame(frm)
-        btn_frame.pack(fill=tk.X, pady=20)
+        btn_frame.pack(fill=tk.X, pady=10)
 
         def save_notif():
             updated_config = copy.deepcopy(self.config)
@@ -3747,17 +3781,17 @@ class JHCISPersonSyncApp:
         sched = self.config.get("schedule", {})
 
         var_enabled = tk.BooleanVar(value=sched.get("enabled", False))
-        ttk.Checkbutton(frm, text="เปิดใช้งานการซิงค์อัตโนมัติ (Auto-Sync)", variable=var_enabled).pack(anchor=tk.W, pady=(0, 10))
+        ttk.Checkbutton(frm, text="เปิดใช้งานการซิงค์อัตโนมัติ (Auto-Sync)", variable=var_enabled).pack(anchor=tk.W, pady=(0, 5))
 
         ttk.Label(frm, text="ช่วงเวลาซิงค์ (HH:MM) - เพิ่มได้หลายรอบ:").pack(anchor=tk.W)
 
         list_times = ttk.Listbox(frm, height=6, width=20, font=FONTS["BODY"])
-        list_times.pack(fill=tk.X, pady=2)
+        list_times.pack(fill=tk.X, pady=1)
         for t in sched.get("sync_times", ["12:00", "16:30"]):
             list_times.insert(tk.END, t)
 
         time_btn_frame = ttk.Frame(frm)
-        time_btn_frame.pack(fill=tk.X, pady=5)
+        time_btn_frame.pack(fill=tk.X, pady=2)
 
         ent_new_time = ttk.Entry(time_btn_frame, width=10)
         ent_new_time.pack(side=tk.LEFT, padx=2, ipady=Spacing.XXS)
@@ -3782,16 +3816,16 @@ class JHCISPersonSyncApp:
         ttk.Button(time_btn_frame, text="เพิ่ม", command=add_time).pack(side=tk.LEFT, padx=2)
         ttk.Button(time_btn_frame, text="ลบ", command=remove_time).pack(side=tk.LEFT, padx=2)
 
-        ttk.Label(frm, text="ขอบเขตการทำงาน:").pack(anchor=tk.W, pady=(10, 0))
+        ttk.Label(frm, text="ขอบเขตการทำงาน:").pack(anchor=tk.W, pady=(5, 0))
         var_mode = tk.StringVar(value=sched.get("target_mode", "selected"))
         ttk.Radiobutton(frm, text="ดึงเฉพาะ รพ.สต. ที่ติ๊กเลือกไว้", variable=var_mode, value="selected").pack(anchor=tk.W)
         ttk.Radiobutton(frm, text="ดึงทุก รพ.สต. ที่ออนไลน์", variable=var_mode, value="all_online").pack(anchor=tk.W)
 
         var_notify = tk.BooleanVar(value=sched.get("notify_on_auto", True))
-        ttk.Checkbutton(frm, text="ส่งแจ้งเตือนเข้า Telegram/LINE เมื่อซิงค์อัตโนมัติเสร็จ", variable=var_notify).pack(anchor=tk.W, pady=(10, 0))
+        ttk.Checkbutton(frm, text="ส่งแจ้งเตือนเข้า Telegram/LINE เมื่อซิงค์อัตโนมัติเสร็จ", variable=var_notify).pack(anchor=tk.W, pady=(5, 0))
 
         btn_frame = ttk.Frame(frm)
-        btn_frame.pack(fill=tk.X, pady=20)
+        btn_frame.pack(fill=tk.X, pady=10)
 
         def save_schedule():
             times = list_times.get(0, tk.END)

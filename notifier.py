@@ -11,7 +11,9 @@ import sys
 
 import requests
 
-LOG_FILE = "sync.log"
+from app_paths import get_app_dir
+
+LOG_FILE = os.path.join(get_app_dir(), "sync.log")
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -23,21 +25,14 @@ logging.basicConfig(
 
 def log_info(msg):
     logging.info(msg)
-    print(msg)
+    if sys.stdout is not None:
+        print(msg)
 
 
 def log_error(msg):
     logging.error(msg)
-    print(msg)
-
-
-def resource_path(relative_path):
-    """คืนค่าพาธจริงของไฟล์ทั้งรันเป็นสคริปต์หรือเป็น .exe ที่แตกด้วย PyInstaller"""
-    if getattr(sys, "frozen", False):
-        base_path = os.path.dirname(sys.executable)
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
+    if sys.stderr is not None:
+        print(msg, file=sys.stderr)
 
 
 def send_telegram_message(bot_token, chat_id, text):

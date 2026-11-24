@@ -1,0 +1,63 @@
+{
+  "district_db": {
+    "host": "",
+    "port": 3306,
+    "database": "",
+    "user": "",
+    "password": ""
+  },
+  "hostatom_db": {
+    "host": "",
+    "port": 3306,
+    "database": "",
+    "user": "",
+    "password": "",
+    "batch_size": 500
+  },
+  "jhcis_default": {
+    "port": 3333,
+    "database": "jhcisdb",
+    "user": "root",
+    "password": ""
+  },
+  "person_mapping": {
+    "pcucodeperson": "pcucodeperson",
+    "pid": "pid",
+    "cid": "cid",
+    "prename": "prename",
+    "fname": "fname",
+    "lname": "lname",
+    "sex": "sex",
+    "birth": "birth",
+    "typelive": "typelive",
+    "dischargetype": "dischargetype",
+    "d_update": "d_update"
+  },
+  "schedule": {
+    "enabled": false,
+    "sync_times": [
+      "12:00",
+      "16:30"
+    ],
+    "target_mode": "selected",
+    "notify_on_auto": true
+  },
+  "district_sync_schedule": {
+    "enabled": false,
+    "sync_times": [
+      "12:00",
+      "17:00"
+    ],
+    "notify_on_auto": true
+  },
+  "start_with_windows": false,
+  "notification": {
+    "telegram_enabled": false,
+    "telegram_bot_token": "",
+    "telegram_chat_id": "",
+    "line_enabled": false,
+    "line_channel_token": "",
+    "line_user_id": ""
+  },
+  "hospitals": []
+}

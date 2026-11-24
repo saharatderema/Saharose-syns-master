@@ -19,8 +19,13 @@ import mysql.connector
 from mysql.connector import Error
 from mysql.connector.constants import FieldType
 
-LOG_FILE = "sync.log"
-CONFIG_FILE = "config.json"
+from app_paths import get_app_dir, get_resource_path
+
+LOG_FILE = os.path.join(get_app_dir(), "sync.log")
+CONFIG_FILE = os.path.join(get_app_dir(), "config.json")
+SYNC_SNAPSHOT_TABLE = "app_sync_row_snapshot"
+SYNC_BASELINE_TABLE = "app_sync_baseline"
+SYNC_MODES = {"all", "new", "updated"}
 
 logging.basicConfig(
     filename=LOG_FILE,
@@ -42,22 +47,23 @@ def log_error(msg):
         print(msg, file=sys.stderr)
 
 
-def resource_path(relative_path):
-    """คืนค่าพาธจริงของไฟล์ทั้งรันเป็นสคริปต์หรือเป็น .exe ที่แตกด้วย PyInstaller"""
-    if getattr(sys, "frozen", False):
-        base_path = os.path.dirname(sys.executable)
-    else:
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
-
-
-CONFIG_FILE = resource_path("config.json")
-
-
 def load_config():
     """อ่านการตั้งค่าจาก config.json (UTF-8)"""
     if not os.path.exists(CONFIG_FILE):
-        return {}
+        template_path = get_resource_path("config.example.json")
+        if not os.path.isfile(template_path):
+            return {}
+        try:
+            with open(template_path, "r", encoding="utf-8") as template_file:
+                config = json.load(template_file)
+            with open(CONFIG_FILE, "x", encoding="utf-8") as config_file:
+                json.dump(config, config_file, ensure_ascii=False, indent=2)
+            return config
+        except FileExistsError:
+            pass
+        except (json.JSONDecodeError, OSError) as error:
+            log_error(f"ไม่สามารถสร้าง config.json จากไฟล์ตัวอย่างได้: {error}")
+            return {}
     try:
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -757,6 +763,164 @@ def _dynamic_report(task_code, message, current, total, progress_callback):
     log_info(formatted)
     if progress_callback is not None:
         progress_callback(formatted, current, total)
+
+
+def _validate_sync_mode(sync_mode):
+    sync_mode = str(sync_mode or "all").strip().lower()
+    if sync_mode not in SYNC_MODES:
+        raise ValueError(f"ไม่รองรับโหมดซิงค์: {sync_mode}")
+    return sync_mode
+
+
+def _snapshot_digest(values):
+    serialized = json.dumps(
+        list(values),
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _snapshot_identity(task_code, scope):
+    mapping_key = _snapshot_digest((str(task_code).strip().upper(),))
+    scope_key = _snapshot_digest((str(scope or "").strip(),))
+    return mapping_key, scope_key
+
+
+def _ensure_sync_snapshot_tables(connection):
+    cursor = connection.cursor()
+    try:
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {_quote_dynamic_identifier(SYNC_SNAPSHOT_TABLE)} (
+                stage VARCHAR(24) CHARACTER SET ascii NOT NULL,
+                mapping_key CHAR(64) CHARACTER SET ascii NOT NULL,
+                scope_key CHAR(64) CHARACTER SET ascii NOT NULL,
+                row_key CHAR(64) CHARACTER SET ascii NOT NULL,
+                row_hash CHAR(64) CHARACTER SET ascii NOT NULL,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    ON UPDATE CURRENT_TIMESTAMP,
+                PRIMARY KEY (stage, mapping_key, scope_key, row_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        cursor.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS {_quote_dynamic_identifier(SYNC_BASELINE_TABLE)} (
+                stage VARCHAR(24) CHARACTER SET ascii NOT NULL,
+                mapping_key CHAR(64) CHARACTER SET ascii NOT NULL,
+                scope_key CHAR(64) CHARACTER SET ascii NOT NULL,
+                completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (stage, mapping_key, scope_key)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            """
+        )
+        connection.commit()
+    finally:
+        cursor.close()
+
+
+def _get_primary_key_columns(cursor, table_name):
+    cursor.execute(
+        f"SHOW INDEX FROM {_quote_dynamic_identifier(table_name)} "
+        "WHERE Key_name = 'PRIMARY'"
+    )
+    description = [column[0].lower() for column in cursor.description]
+    key_name_index = description.index("key_name")
+    sequence_index = description.index("seq_in_index")
+    column_name_index = description.index("column_name")
+    primary_keys = sorted(
+        (
+            int(row[sequence_index]),
+            str(row[column_name_index]),
+        )
+        for row in cursor.fetchall()
+        if str(row[key_name_index]).upper() == "PRIMARY"
+    )
+    return [column for _, column in primary_keys]
+
+
+def _has_sync_baseline(cursor, stage, mapping_key, scope_key):
+    cursor.execute(
+        f"SELECT 1 FROM {_quote_dynamic_identifier(SYNC_BASELINE_TABLE)} "
+        "WHERE stage = %s AND mapping_key = %s AND scope_key = %s LIMIT 1",
+        (stage, mapping_key, scope_key),
+    )
+    return cursor.fetchone() is not None
+
+
+def _mark_sync_baseline(cursor, stage, mapping_key, scope_key):
+    cursor.execute(
+        f"""
+        INSERT INTO {_quote_dynamic_identifier(SYNC_BASELINE_TABLE)}
+            (stage, mapping_key, scope_key)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE completed_at = CURRENT_TIMESTAMP
+        """,
+        (stage, mapping_key, scope_key),
+    )
+
+
+def _load_snapshot_hashes(cursor, stage, mapping_key, scope_key, row_keys):
+    hashes = {}
+    unique_keys = list(dict.fromkeys(row_keys))
+    for offset in range(0, len(unique_keys), 500):
+        batch_keys = unique_keys[offset:offset + 500]
+        placeholders = ", ".join(["%s"] * len(batch_keys))
+        cursor.execute(
+            f"""
+            SELECT row_key, row_hash
+            FROM {_quote_dynamic_identifier(SYNC_SNAPSHOT_TABLE)}
+            WHERE stage = %s AND mapping_key = %s AND scope_key = %s
+                AND row_key IN ({placeholders})
+            """,
+            (stage, mapping_key, scope_key, *batch_keys),
+        )
+        hashes.update(cursor.fetchall())
+    return hashes
+
+
+def _filter_snapshot_rows(sync_mode, snapshots, existing_hashes):
+    if sync_mode == "all":
+        return snapshots
+    if sync_mode == "new":
+        return [
+            item for item in snapshots
+            if item["row_key"] not in existing_hashes
+        ]
+    return [
+        item for item in snapshots
+        if item["row_key"] in existing_hashes
+        and item["row_hash"] != existing_hashes[item["row_key"]]
+    ]
+
+
+def _save_snapshot_rows(
+    cursor, stage, mapping_key, scope_key, snapshots
+):
+    if not snapshots:
+        return
+    cursor.executemany(
+        f"""
+        INSERT INTO {_quote_dynamic_identifier(SYNC_SNAPSHOT_TABLE)}
+            (stage, mapping_key, scope_key, row_key, row_hash)
+        VALUES (%s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            row_hash = VALUES(row_hash),
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        [
+            (
+                stage,
+                mapping_key,
+                scope_key,
+                item["row_key"],
+                item["row_hash"],
+            )
+            for item in snapshots
+        ],
+    )
 
 
 def _close_dynamic_resources(resources):

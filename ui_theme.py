@@ -144,6 +144,28 @@ class Spacing:
     CONTENT_MAX_WIDTH = 1200  # Max content width for readability
 
 
+class VSpacing:
+    """Compact vertical gaps; input padding remains unchanged for Thai text."""
+
+    BASE = 4
+    NONE = 0
+    XXXS = 2
+    XXS = 4
+    XS = 4
+    SM = 8
+    MD = 12
+    LG = 16
+    XL = 20
+    XXL = 24
+    XXXL = 32
+    XXXXL = 40
+    PAGE_PADDING = 12
+    SECTION_GAP = 12
+    CARD_PADDING = 12
+    BUTTON_GAP = 8
+    FORM_GAP = 8
+
+
 def setup_default_fonts(root: tk.Tk) -> str:
     try:
         installed_fonts = {
@@ -226,7 +248,7 @@ def setup_default_fonts(root: tk.Tk) -> str:
     style.configure("TButton", font=FONTS["BUTTON"])
     style.configure("TLabel", font=FONTS["BODY"])
     style.configure("TEntry", font=FONTS["BODY"], padding=(8, 8))
-    style.configure("Treeview", font=FONTS["BODY"], rowheight=34)
+    style.configure("Treeview", font=FONTS["BODY"], rowheight=27)
     style.configure("Treeview.Heading", font=FONTS["H3"])
     return family
 
@@ -332,25 +354,25 @@ class ThemeManager:
             pass
         Typography.configure(self.root)
         self.root.option_add("*Font", FONTS["BODY"])
-        self.style.configure("Treeview", font=FONTS["BODY"], rowheight=34,
+        self.style.configure("Treeview", font=FONTS["BODY"], rowheight=27,
                              background=Colors.WHITE, fieldbackground=Colors.WHITE,
                              foreground=Colors.TEXT_PRIMARY, borderwidth=0)
-        self.style.configure("Compact.Treeview", font=FONTS["BODY"], rowheight=34,
+        self.style.configure("Compact.Treeview", font=FONTS["BODY"], rowheight=27,
                              background=Colors.WHITE, fieldbackground=Colors.WHITE,
                              foreground=Colors.TEXT_PRIMARY, borderwidth=0)
         self.style.configure("Treeview.Heading", font=FONTS["H3"],
                              background=Colors.GRAY_50, foreground=Colors.TEXT_PRIMARY,
-                             relief="flat", padding=(8, 8))
+                             relief="flat", padding=(8, 4))
         self.style.configure("Compact.Treeview.Heading", font=FONTS["BUTTON"],
                              background=Colors.GRAY_50, foreground=Colors.TEXT_PRIMARY,
-                             relief="flat", padding=(8, 8))
+                             relief="flat", padding=(8, 4))
         self.style.map("Treeview", background=[("selected", Colors.PRIMARY_LIGHT)],
                        foreground=[("selected", Colors.PRIMARY_STRONG)])
         self.style.layout("Treeview", [("Treeview.treearea", {"sticky": "nswe"})])
         self.style.configure("Vertical.TScrollbar", width=12,
                              background=Colors.GRAY_200, troughcolor=Colors.BG_PRIMARY)
         self.style.configure("TNotebook", background=Colors.BG_PRIMARY, borderwidth=0)
-        self.style.configure("TNotebook.Tab", font=FONTS["BODY"], padding=(16, 10))
+        self.style.configure("TNotebook.Tab", font=FONTS["BODY"], padding=(16, 5))
 
     def get_style(self, style_name: str) -> Dict[str, Any]:
         return self._custom_styles.get(style_name, {})
@@ -483,6 +505,8 @@ class _CTkLabelFrameBody(ctk.CTkFrame):
             body_pady = padding[1] if len(padding) > 1 else padding[0]
         else:
             body_padx = body_pady = padding
+        if isinstance(body_pady, (int, float)):
+            body_pady = int(body_pady / 2)
 
         self._outer.grid_columnconfigure(0, weight=1)
         self._outer.grid_rowconfigure(1, weight=1)
@@ -494,7 +518,7 @@ class _CTkLabelFrameBody(ctk.CTkFrame):
             anchor="w",
         )
         self._title_label.grid(
-            row=0, column=0, sticky="ew", padx=12, pady=(12, 4)
+            row=0, column=0, sticky="ew", padx=12, pady=(6, 2)
         )
         ctk.CTkFrame.grid(
             self, row=1, column=0, sticky="nsew",
@@ -895,7 +919,7 @@ class ContentStack(ctk.CTkFrame):
                 self._current_page.grid_remove()
             target.grid()
             self._current_page = target
-        self.event_generate("<<NotebookTabChanged>>", when="tail")
+        self._canvas.event_generate("<<NotebookTabChanged>>", when="tail")
         return str(self._current_page)
 
 
@@ -922,7 +946,7 @@ class SidebarNavigation(ctk.CTkFrame):
             text="SYNC MASTER",
             font=FONTS["CAPTION"],
             text_color=Colors.TEXT_MUTED,
-        ).grid(row=1, column=0, sticky=tk.W, padx=8, pady=(0, 20))
+        ).grid(row=1, column=0, sticky=tk.W, padx=8, pady=(0, 10))
 
         menu = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
         menu.grid(row=2, column=0, sticky=tk.NSEW)
@@ -939,7 +963,7 @@ class SidebarNavigation(ctk.CTkFrame):
                 hover_color=Colors.GRAY_100,
                 command=lambda selected=page: self.content_stack.select(selected),
             )
-            button.pack(fill=tk.X, pady=3)
+            button.pack(fill=tk.X, pady=1)
             self.buttons.append((button, page))
 
         ctk.CTkLabel(
@@ -948,7 +972,7 @@ class SidebarNavigation(ctk.CTkFrame):
             font=FONTS["CAPTION"],
             text_color=Colors.TEXT_MUTED,
             wraplength=200,
-        ).grid(row=3, column=0, sticky=tk.SW, padx=8, pady=(16, 0))
+        ).grid(row=3, column=0, sticky=tk.SW, padx=8, pady=(8, 0))
         self.content_stack.bind(
             "<<NotebookTabChanged>>", self._sync_selected_state, add="+"
         )
@@ -1140,12 +1164,12 @@ if __name__ == "__main__":
     main_frame = widgets.Frame(root, padding=Spacing.LG)
     main_frame.pack(fill=tk.BOTH, expand=True)
     
-    create_title_label(main_frame, "SAHARose Sync Master - UI Theme Demo").pack(anchor=tk.W, pady=(0, Spacing.XS))
-    create_muted_label(main_frame, "Design System Components Showcase").pack(anchor=tk.W, pady=(0, Spacing.XXL))
+    create_title_label(main_frame, "SAHARose Sync Master - UI Theme Demo").pack(anchor=tk.W, pady=(0, VSpacing.XS))
+    create_muted_label(main_frame, "Design System Components Showcase").pack(anchor=tk.W, pady=(0, VSpacing.XXL))
     
-    create_heading_label(main_frame, "Buttons").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Buttons").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     btn_frame = widgets.Frame(main_frame)
-    btn_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
+    btn_frame.pack(fill=tk.X, pady=(0, VSpacing.LG))
     
     create_primary_button(btn_frame, f"{Icons.PLAY} Primary").pack(side=tk.LEFT, padx=(0, Spacing.SM))
     create_secondary_button(btn_frame, f"{Icons.SETTINGS} Secondary").pack(side=tk.LEFT, padx=(0, Spacing.SM))
@@ -1156,26 +1180,26 @@ if __name__ == "__main__":
     create_small_button(btn_frame, f"{Icons.EDIT} Small", variant="Primary").pack(side=tk.LEFT, padx=(0, Spacing.SM))
     create_small_button(btn_frame, f"{Icons.DELETE} Small Danger", variant="Danger").pack(side=tk.LEFT, padx=(0, Spacing.SM))
     
-    create_heading_label(main_frame, "Cards").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Cards").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     card_frame = widgets.Frame(main_frame)
-    card_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
+    card_frame.pack(fill=tk.X, pady=(0, VSpacing.LG))
 
 
     card1 = create_card(card_frame)
     card1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, Spacing.SM))
-    widgets.Label(card1, text="Card Title", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
-    widgets.Label(card1, text="Card content goes here with some description text.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
-    create_primary_button(card1, f"{Icons.SAVE} Action").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.MD))
+    widgets.Label(card1, text="Card Title", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(VSpacing.MD, VSpacing.XS))
+    widgets.Label(card1, text="Card content goes here with some description text.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, VSpacing.SM))
+    create_primary_button(card1, f"{Icons.SAVE} Action").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, VSpacing.MD))
     
     card2 = create_card(card_frame)
     card2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(Spacing.SM, 0))
-    widgets.Label(card2, text="Elevated Card", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
-    widgets.Label(card2, text="Elevated card with more visual prominence.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
-    create_secondary_button(card2, f"{Icons.SETTINGS} Configure").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.MD))
+    widgets.Label(card2, text="Elevated Card", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(VSpacing.MD, VSpacing.XS))
+    widgets.Label(card2, text="Elevated card with more visual prominence.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, VSpacing.SM))
+    create_secondary_button(card2, f"{Icons.SETTINGS} Configure").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, VSpacing.MD))
     
-    create_heading_label(main_frame, "Status Labels").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Status Labels").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     status_frame = widgets.Frame(main_frame)
-    status_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
+    status_frame.pack(fill=tk.X, pady=(0, VSpacing.LG))
     
     create_status_label(status_frame, f"{Icons.ONLINE} Online", "online").pack(side=tk.LEFT, padx=(0, Spacing.MD))
     create_status_label(status_frame, f"{Icons.OFFLINE} Offline", "offline").pack(side=tk.LEFT, padx=(0, Spacing.MD))
@@ -1184,46 +1208,46 @@ if __name__ == "__main__":
     create_status_label(status_frame, f"{Icons.INFO} Info", "info").pack(side=tk.LEFT, padx=(0, Spacing.MD))
     create_status_label(status_frame, f"{Icons.PENDING} Pending", "pending").pack(side=tk.LEFT, padx=(0, Spacing.MD))
     
-    create_heading_label(main_frame, "Progress Bars").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Progress Bars").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     prog_frame = widgets.Frame(main_frame)
-    prog_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
+    prog_frame.pack(fill=tk.X, pady=(0, VSpacing.LG))
     
     pb1 = create_progressbar(prog_frame, variant="default", value=65, maximum=100)
-    pb1.pack(fill=tk.X, pady=(0, Spacing.SM))
+    pb1.pack(fill=tk.X, pady=(0, VSpacing.SM))
     widgets.Label(prog_frame, text="Default Progress: 65%", style="Caption.TLabel").pack(anchor=tk.W)
 
 
     pb2 = create_progressbar(prog_frame, variant="success", value=100, maximum=100)
-    pb2.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
+    pb2.pack(fill=tk.X, pady=(VSpacing.SM, VSpacing.XS))
     widgets.Label(prog_frame, text="Success Progress: 100%", style="Caption.TLabel").pack(anchor=tk.W)
     
     pb3 = create_progressbar(prog_frame, variant="warning", value=75, maximum=100)
-    pb3.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
+    pb3.pack(fill=tk.X, pady=(VSpacing.SM, VSpacing.XS))
     widgets.Label(prog_frame, text="Warning Progress: 75%", style="Caption.TLabel").pack(anchor=tk.W)
     
     pb4 = create_progressbar(prog_frame, variant="danger", value=30, maximum=100)
-    pb4.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
+    pb4.pack(fill=tk.X, pady=(VSpacing.SM, VSpacing.XS))
     widgets.Label(prog_frame, text="Danger Progress: 30%", style="Caption.TLabel").pack(anchor=tk.W)
     
-    create_heading_label(main_frame, "Form Inputs").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Form Inputs").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     input_frame = widgets.Frame(main_frame)
-    input_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
+    input_frame.pack(fill=tk.X, pady=(0, VSpacing.LG))
     
-    widgets.Label(input_frame, text="Text Input:", style="Label.TLabel").grid(row=0, column=0, sticky=tk.W, pady=Spacing.XS)
+    widgets.Label(input_frame, text="Text Input:", style="Label.TLabel").grid(row=0, column=0, sticky=tk.W, pady=VSpacing.XS)
     entry = widgets.Entry(input_frame, width=30)
-    entry.grid(row=0, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=Spacing.XS, ipady=Spacing.XXS)
+    entry.grid(row=0, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=VSpacing.XS, ipady=Spacing.XXS)
     entry.insert(0, "Sample input...")
     
-    widgets.Label(input_frame, text="Combobox:", style="Label.TLabel").grid(row=1, column=0, sticky=tk.W, pady=Spacing.XS)
+    widgets.Label(input_frame, text="Combobox:", style="Label.TLabel").grid(row=1, column=0, sticky=tk.W, pady=VSpacing.XS)
     combo = widgets.Combobox(input_frame, values=["Option 1", "Option 2", "Option 3"], width=28, state="readonly")
-    combo.grid(row=1, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=Spacing.XS)
+    combo.grid(row=1, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=VSpacing.XS)
     combo.current(0)
     
     input_frame.columnconfigure(1, weight=1)
     
-    create_heading_label(main_frame, "Data Table (Treeview)").pack(anchor=tk.W, pady=(0, Spacing.SM))
+    create_heading_label(main_frame, "Data Table (Treeview)").pack(anchor=tk.W, pady=(0, VSpacing.SM))
     tree_frame = widgets.Frame(main_frame)
-    tree_frame.pack(fill=tk.BOTH, expand=True, pady=(0, Spacing.LG))
+    tree_frame.pack(fill=tk.BOTH, expand=True, pady=(0, VSpacing.LG))
     
     tree = create_treeview(tree_frame, columns=("col1", "col2", "col3", "col4"), show="headings")
     tree.heading("col1", text=f"{Icons.HOSPITAL} Hospital")

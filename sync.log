@@ -1011,3 +1011,426 @@
 2026-11-24 10:06:26,028 [INFO] [PERSON] Step 4: merge สำเร็จ (23676 แถว)
 2026-11-24 10:06:26,066 [INFO] [Notifier] ไม่มีช่องทางแจ้งเตือนใดถูกเปิดใช้งานหรือกรอกข้อมูลไม่ครบ
 2026-11-24 10:08:55,522 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 10:43:48,930 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 10:44:25,369 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.ตูหยง)
+2026-11-24 10:44:35,973 [ERROR] [PERSON] JHCIS → ฐานอำเภอ (09491) ล้มเหลวหลังบันทึก 0 แถว: 2013 (HY000): Lost connection to MySQL server at 'waiting for initial communication packet', system error: 10060
+2026-11-24 10:44:35,974 [ERROR] [Data Flow] รพ.สต.ตูหยง / PERSON: 2013 (HY000): Lost connection to MySQL server at 'waiting for initial communication packet', system error: 10060
+2026-11-24 10:44:35,978 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.สะกอม)
+2026-11-24 10:44:36,343 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 10:44:36,504 [INFO] [PERSON] 09499: บันทึก 500 แถวเข้า org_person
+2026-11-24 10:44:36,538 [INFO] [PERSON] 09499: บันทึก 1000 แถวเข้า org_person
+2026-11-24 10:44:36,587 [INFO] [PERSON] 09499: บันทึก 1500 แถวเข้า org_person
+2026-11-24 10:44:36,670 [INFO] [PERSON] 09499: บันทึก 2000 แถวเข้า org_person
+2026-11-24 10:44:36,751 [INFO] [PERSON] 09499: บันทึก 2500 แถวเข้า org_person
+2026-11-24 10:44:36,847 [INFO] [PERSON] 09499: บันทึก 3000 แถวเข้า org_person
+2026-11-24 10:44:36,930 [INFO] [PERSON] 09499: บันทึก 3500 แถวเข้า org_person
+2026-11-24 10:44:37,005 [INFO] [PERSON] 09499: บันทึก 4000 แถวเข้า org_person
+2026-11-24 10:44:37,116 [INFO] [PERSON] 09499: บันทึก 4500 แถวเข้า org_person
+2026-11-24 10:44:37,200 [INFO] [PERSON] 09499: บันทึก 5000 แถวเข้า org_person
+2026-11-24 10:44:37,277 [INFO] [PERSON] 09499: บันทึก 5500 แถวเข้า org_person
+2026-11-24 10:44:37,364 [INFO] [PERSON] 09499: บันทึก 6000 แถวเข้า org_person
+2026-11-24 10:44:37,480 [INFO] [PERSON] 09499: บันทึก 6500 แถวเข้า org_person
+2026-11-24 10:44:37,530 [INFO] [PERSON] 09499: บันทึก 7000 แถวเข้า org_person
+2026-11-24 10:44:37,618 [INFO] [PERSON] 09499: บันทึก 7500 แถวเข้า org_person
+2026-11-24 10:44:37,739 [INFO] [PERSON] 09499: บันทึก 8000 แถวเข้า org_person
+2026-11-24 10:44:37,774 [INFO] [PERSON] 09499: บันทึก 8500 แถวเข้า org_person
+2026-11-24 10:44:37,886 [INFO] [PERSON] 09499: บันทึก 9000 แถวเข้า org_person
+2026-11-24 10:44:37,938 [INFO] [PERSON] 09499: บันทึก 9500 แถวเข้า org_person
+2026-11-24 10:44:38,063 [INFO] [PERSON] 09499: บันทึก 10000 แถวเข้า org_person
+2026-11-24 10:44:38,124 [INFO] [PERSON] 09499: บันทึก 10500 แถวเข้า org_person
+2026-11-24 10:44:38,137 [INFO] [PERSON] 09499: บันทึก 10642 แถวเข้า org_person
+2026-11-24 10:44:38,138 [INFO] [PERSON] 09499: ดึงเข้า org_person สำเร็จ (10642 แถว)
+2026-11-24 10:44:45,137 [INFO] [PERSON] Step 1: อ่านข้อมูลจากฐานอำเภอ
+2026-11-24 10:44:45,185 [INFO] [PERSON] Step 2: อ่าน org_person (25 คอลัมน์, 23676 แถว)
+2026-11-24 10:44:45,307 [INFO] [PERSON] Step 3: ล็อก store_person สำเร็จ
+2026-11-24 10:44:45,365 [INFO] [PERSON] Step 3: ข้ามคอลัมน์ที่ไม่มีใน staging: district_synced_at
+2026-11-24 10:44:45,368 [INFO] [PERSON] Step 3: เริ่มส่งข้อมูลเข้า store_person
+2026-11-24 10:44:45,476 [INFO] [PERSON] Step 3: ส่งเข้า store_person (500/23676)
+2026-11-24 10:44:45,552 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1000/23676)
+2026-11-24 10:44:45,612 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1500/23676)
+2026-11-24 10:44:45,676 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2000/23676)
+2026-11-24 10:44:45,743 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2500/23676)
+2026-11-24 10:44:45,815 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3000/23676)
+2026-11-24 10:44:45,879 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3500/23676)
+2026-11-24 10:44:45,938 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4000/23676)
+2026-11-24 10:44:46,003 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4500/23676)
+2026-11-24 10:44:46,065 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5000/23676)
+2026-11-24 10:44:46,147 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5500/23676)
+2026-11-24 10:44:46,222 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6000/23676)
+2026-11-24 10:44:46,294 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6500/23676)
+2026-11-24 10:44:46,368 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7000/23676)
+2026-11-24 10:44:46,442 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7500/23676)
+2026-11-24 10:44:46,512 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8000/23676)
+2026-11-24 10:44:46,584 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8500/23676)
+2026-11-24 10:44:46,658 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9000/23676)
+2026-11-24 10:44:46,751 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9500/23676)
+2026-11-24 10:44:46,814 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10000/23676)
+2026-11-24 10:44:46,882 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10500/23676)
+2026-11-24 10:44:46,943 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11000/23676)
+2026-11-24 10:44:47,021 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11500/23676)
+2026-11-24 10:44:47,104 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12000/23676)
+2026-11-24 10:44:47,179 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12500/23676)
+2026-11-24 10:44:47,246 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13000/23676)
+2026-11-24 10:44:47,321 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13500/23676)
+2026-11-24 10:44:47,398 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14000/23676)
+2026-11-24 10:44:47,473 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14500/23676)
+2026-11-24 10:44:47,553 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15000/23676)
+2026-11-24 10:44:47,625 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15500/23676)
+2026-11-24 10:44:47,695 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16000/23676)
+2026-11-24 10:44:47,769 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16500/23676)
+2026-11-24 10:44:47,831 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17000/23676)
+2026-11-24 10:44:47,897 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17500/23676)
+2026-11-24 10:44:47,978 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18000/23676)
+2026-11-24 10:44:48,054 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18500/23676)
+2026-11-24 10:44:48,117 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19000/23676)
+2026-11-24 10:44:48,199 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19500/23676)
+2026-11-24 10:44:48,265 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20000/23676)
+2026-11-24 10:44:48,333 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20500/23676)
+2026-11-24 10:44:48,410 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21000/23676)
+2026-11-24 10:44:48,485 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21500/23676)
+2026-11-24 10:44:48,552 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22000/23676)
+2026-11-24 10:44:48,620 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22500/23676)
+2026-11-24 10:44:48,682 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23000/23676)
+2026-11-24 10:44:48,760 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23500/23676)
+2026-11-24 10:44:48,812 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23676/23676)
+2026-11-24 10:44:48,814 [INFO] [PERSON] Step 4: เรียก sp_merge_person เพื่อ merge ลง real table
+2026-11-24 10:44:49,311 [INFO] [PERSON] Step 4: merge สำเร็จ (23676 แถว)
+2026-11-24 10:51:36,565 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 10:56:08,514 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 10:59:54,282 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 11:10:06,084 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.ตูหยง)
+2026-11-24 11:10:06,180 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 11:10:06,254 [INFO] [PERSON] 09491: บันทึก 500 แถวเข้า org_person
+2026-11-24 11:10:06,286 [INFO] [PERSON] 09491: บันทึก 1000 แถวเข้า org_person
+2026-11-24 11:10:06,305 [INFO] [PERSON] 09491: บันทึก 1500 แถวเข้า org_person
+2026-11-24 11:10:06,339 [INFO] [PERSON] 09491: บันทึก 2000 แถวเข้า org_person
+2026-11-24 11:10:06,376 [INFO] [PERSON] 09491: บันทึก 2500 แถวเข้า org_person
+2026-11-24 11:10:06,407 [INFO] [PERSON] 09491: บันทึก 3000 แถวเข้า org_person
+2026-11-24 11:10:06,443 [INFO] [PERSON] 09491: บันทึก 3500 แถวเข้า org_person
+2026-11-24 11:10:06,489 [INFO] [PERSON] 09491: บันทึก 4000 แถวเข้า org_person
+2026-11-24 11:10:06,535 [INFO] [PERSON] 09491: บันทึก 4500 แถวเข้า org_person
+2026-11-24 11:10:06,569 [INFO] [PERSON] 09491: บันทึก 5000 แถวเข้า org_person
+2026-11-24 11:10:06,611 [INFO] [PERSON] 09491: บันทึก 5500 แถวเข้า org_person
+2026-11-24 11:10:06,640 [INFO] [PERSON] 09491: บันทึก 6000 แถวเข้า org_person
+2026-11-24 11:10:06,658 [INFO] [PERSON] 09491: บันทึก 6500 แถวเข้า org_person
+2026-11-24 11:10:06,676 [INFO] [PERSON] 09491: บันทึก 7000 แถวเข้า org_person
+2026-11-24 11:10:06,698 [INFO] [PERSON] 09491: บันทึก 7500 แถวเข้า org_person
+2026-11-24 11:10:06,717 [INFO] [PERSON] 09491: บันทึก 8000 แถวเข้า org_person
+2026-11-24 11:10:06,735 [INFO] [PERSON] 09491: บันทึก 8500 แถวเข้า org_person
+2026-11-24 11:10:06,759 [INFO] [PERSON] 09491: บันทึก 9000 แถวเข้า org_person
+2026-11-24 11:10:06,807 [INFO] [PERSON] 09491: บันทึก 9500 แถวเข้า org_person
+2026-11-24 11:10:06,827 [INFO] [PERSON] 09491: บันทึก 10000 แถวเข้า org_person
+2026-11-24 11:10:06,852 [INFO] [PERSON] 09491: บันทึก 10500 แถวเข้า org_person
+2026-11-24 11:10:06,871 [INFO] [PERSON] 09491: บันทึก 11000 แถวเข้า org_person
+2026-11-24 11:10:06,902 [INFO] [PERSON] 09491: บันทึก 11500 แถวเข้า org_person
+2026-11-24 11:10:06,924 [INFO] [PERSON] 09491: บันทึก 12000 แถวเข้า org_person
+2026-11-24 11:10:06,953 [INFO] [PERSON] 09491: บันทึก 12500 แถวเข้า org_person
+2026-11-24 11:10:06,978 [INFO] [PERSON] 09491: บันทึก 13000 แถวเข้า org_person
+2026-11-24 11:10:06,982 [INFO] [PERSON] 09491: บันทึก 13034 แถวเข้า org_person
+2026-11-24 11:10:06,982 [INFO] [PERSON] 09491: ดึงเข้า org_person สำเร็จ (13034 แถว)
+2026-11-24 11:10:06,991 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.สะกอม)
+2026-11-24 11:10:07,336 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 11:10:07,440 [INFO] [PERSON] 09499: บันทึก 500 แถวเข้า org_person
+2026-11-24 11:10:07,530 [INFO] [PERSON] 09499: บันทึก 1000 แถวเข้า org_person
+2026-11-24 11:10:07,594 [INFO] [PERSON] 09499: บันทึก 1500 แถวเข้า org_person
+2026-11-24 11:10:07,690 [INFO] [PERSON] 09499: บันทึก 2000 แถวเข้า org_person
+2026-11-24 11:10:07,783 [INFO] [PERSON] 09499: บันทึก 2500 แถวเข้า org_person
+2026-11-24 11:10:07,849 [INFO] [PERSON] 09499: บันทึก 3000 แถวเข้า org_person
+2026-11-24 11:10:07,964 [INFO] [PERSON] 09499: บันทึก 3500 แถวเข้า org_person
+2026-11-24 11:10:08,061 [INFO] [PERSON] 09499: บันทึก 4000 แถวเข้า org_person
+2026-11-24 11:10:08,141 [INFO] [PERSON] 09499: บันทึก 4500 แถวเข้า org_person
+2026-11-24 11:10:08,224 [INFO] [PERSON] 09499: บันทึก 5000 แถวเข้า org_person
+2026-11-24 11:10:08,302 [INFO] [PERSON] 09499: บันทึก 5500 แถวเข้า org_person
+2026-11-24 11:10:08,383 [INFO] [PERSON] 09499: บันทึก 6000 แถวเข้า org_person
+2026-11-24 11:10:08,496 [INFO] [PERSON] 09499: บันทึก 6500 แถวเข้า org_person
+2026-11-24 11:10:08,577 [INFO] [PERSON] 09499: บันทึก 7000 แถวเข้า org_person
+2026-11-24 11:10:08,658 [INFO] [PERSON] 09499: บันทึก 7500 แถวเข้า org_person
+2026-11-24 11:10:08,734 [INFO] [PERSON] 09499: บันทึก 8000 แถวเข้า org_person
+2026-11-24 11:10:08,798 [INFO] [PERSON] 09499: บันทึก 8500 แถวเข้า org_person
+2026-11-24 11:10:08,889 [INFO] [PERSON] 09499: บันทึก 9000 แถวเข้า org_person
+2026-11-24 11:10:08,971 [INFO] [PERSON] 09499: บันทึก 9500 แถวเข้า org_person
+2026-11-24 11:10:09,079 [INFO] [PERSON] 09499: บันทึก 10000 แถวเข้า org_person
+2026-11-24 11:10:09,152 [INFO] [PERSON] 09499: บันทึก 10500 แถวเข้า org_person
+2026-11-24 11:10:09,160 [INFO] [PERSON] 09499: บันทึก 10642 แถวเข้า org_person
+2026-11-24 11:10:09,161 [INFO] [PERSON] 09499: ดึงเข้า org_person สำเร็จ (10642 แถว)
+2026-11-24 11:10:09,198 [INFO] [PERSON] Step 1: อ่านข้อมูลจากฐานอำเภอ
+2026-11-24 11:10:09,237 [INFO] [PERSON] Step 2: อ่าน org_person (25 คอลัมน์, 23676 แถว)
+2026-11-24 11:10:09,360 [INFO] [PERSON] Step 3: ล็อก store_person สำเร็จ
+2026-11-24 11:10:09,419 [INFO] [PERSON] Step 3: ข้ามคอลัมน์ที่ไม่มีใน staging: district_synced_at
+2026-11-24 11:10:09,419 [INFO] [PERSON] Step 3: เริ่มส่งข้อมูลเข้า store_person
+2026-11-24 11:10:09,530 [INFO] [PERSON] Step 3: ส่งเข้า store_person (500/23676)
+2026-11-24 11:10:09,598 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1000/23676)
+2026-11-24 11:10:09,666 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1500/23676)
+2026-11-24 11:10:09,729 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2000/23676)
+2026-11-24 11:10:09,803 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2500/23676)
+2026-11-24 11:10:09,875 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3000/23676)
+2026-11-24 11:10:09,954 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3500/23676)
+2026-11-24 11:10:10,018 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4000/23676)
+2026-11-24 11:10:10,090 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4500/23676)
+2026-11-24 11:10:10,155 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5000/23676)
+2026-11-24 11:10:10,232 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5500/23676)
+2026-11-24 11:10:10,306 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6000/23676)
+2026-11-24 11:10:10,376 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6500/23676)
+2026-11-24 11:10:10,451 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7000/23676)
+2026-11-24 11:10:10,511 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7500/23676)
+2026-11-24 11:10:10,570 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8000/23676)
+2026-11-24 11:10:10,638 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8500/23676)
+2026-11-24 11:10:10,704 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9000/23676)
+2026-11-24 11:10:10,783 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9500/23676)
+2026-11-24 11:10:10,847 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10000/23676)
+2026-11-24 11:10:10,906 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10500/23676)
+2026-11-24 11:10:10,962 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11000/23676)
+2026-11-24 11:10:11,023 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11500/23676)
+2026-11-24 11:10:11,095 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12000/23676)
+2026-11-24 11:10:11,162 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12500/23676)
+2026-11-24 11:10:11,232 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13000/23676)
+2026-11-24 11:10:11,306 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13500/23676)
+2026-11-24 11:10:11,374 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14000/23676)
+2026-11-24 11:10:11,434 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14500/23676)
+2026-11-24 11:10:11,499 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15000/23676)
+2026-11-24 11:10:11,569 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15500/23676)
+2026-11-24 11:10:11,641 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16000/23676)
+2026-11-24 11:10:11,705 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16500/23676)
+2026-11-24 11:10:11,767 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17000/23676)
+2026-11-24 11:10:11,825 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17500/23676)
+2026-11-24 11:10:11,890 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18000/23676)
+2026-11-24 11:10:11,951 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18500/23676)
+2026-11-24 11:10:12,011 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19000/23676)
+2026-11-24 11:10:12,076 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19500/23676)
+2026-11-24 11:10:12,137 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20000/23676)
+2026-11-24 11:10:12,195 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20500/23676)
+2026-11-24 11:10:12,267 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21000/23676)
+2026-11-24 11:10:12,337 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21500/23676)
+2026-11-24 11:10:12,405 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22000/23676)
+2026-11-24 11:10:12,464 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22500/23676)
+2026-11-24 11:10:12,531 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23000/23676)
+2026-11-24 11:10:12,599 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23500/23676)
+2026-11-24 11:10:12,655 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23676/23676)
+2026-11-24 11:10:12,659 [INFO] [PERSON] Step 4: เรียก sp_merge_person เพื่อ merge ลง real table
+2026-11-24 11:10:13,119 [INFO] [PERSON] Step 4: merge สำเร็จ (23676 แถว)
+2026-11-24 11:10:13,154 [INFO] [Notifier] ไม่มีช่องทางแจ้งเตือนใดถูกเปิดใช้งานหรือกรอกข้อมูลไม่ครบ
+2026-11-24 11:39:29,086 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 11:43:48,677 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 13:39:38,057 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 13:41:01,890 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.ตูหยง)
+2026-11-24 13:41:02,235 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 13:41:02,853 [INFO] [PERSON] 09491: บันทึก 500 แถวเข้า org_person
+2026-11-24 13:41:02,888 [INFO] [PERSON] 09491: บันทึก 1000 แถวเข้า org_person
+2026-11-24 13:41:02,924 [INFO] [PERSON] 09491: บันทึก 1500 แถวเข้า org_person
+2026-11-24 13:41:02,991 [INFO] [PERSON] 09491: บันทึก 2000 แถวเข้า org_person
+2026-11-24 13:41:03,042 [INFO] [PERSON] 09491: บันทึก 2500 แถวเข้า org_person
+2026-11-24 13:41:03,088 [INFO] [PERSON] 09491: บันทึก 3000 แถวเข้า org_person
+2026-11-24 13:41:03,134 [INFO] [PERSON] 09491: บันทึก 3500 แถวเข้า org_person
+2026-11-24 13:41:03,172 [INFO] [PERSON] 09491: บันทึก 4000 แถวเข้า org_person
+2026-11-24 13:41:03,202 [INFO] [PERSON] 09491: บันทึก 4500 แถวเข้า org_person
+2026-11-24 13:41:03,247 [INFO] [PERSON] 09491: บันทึก 5000 แถวเข้า org_person
+2026-11-24 13:41:03,290 [INFO] [PERSON] 09491: บันทึก 5500 แถวเข้า org_person
+2026-11-24 13:41:03,319 [INFO] [PERSON] 09491: บันทึก 6000 แถวเข้า org_person
+2026-11-24 13:41:03,358 [INFO] [PERSON] 09491: บันทึก 6500 แถวเข้า org_person
+2026-11-24 13:41:03,401 [INFO] [PERSON] 09491: บันทึก 7000 แถวเข้า org_person
+2026-11-24 13:41:03,437 [INFO] [PERSON] 09491: บันทึก 7500 แถวเข้า org_person
+2026-11-24 13:41:03,488 [INFO] [PERSON] 09491: บันทึก 8000 แถวเข้า org_person
+2026-11-24 13:41:03,532 [INFO] [PERSON] 09491: บันทึก 8500 แถวเข้า org_person
+2026-11-24 13:41:03,561 [INFO] [PERSON] 09491: บันทึก 9000 แถวเข้า org_person
+2026-11-24 13:41:03,601 [INFO] [PERSON] 09491: บันทึก 9500 แถวเข้า org_person
+2026-11-24 13:41:03,631 [INFO] [PERSON] 09491: บันทึก 10000 แถวเข้า org_person
+2026-11-24 13:41:03,690 [INFO] [PERSON] 09491: บันทึก 10500 แถวเข้า org_person
+2026-11-24 13:41:03,733 [INFO] [PERSON] 09491: บันทึก 11000 แถวเข้า org_person
+2026-11-24 13:41:03,774 [INFO] [PERSON] 09491: บันทึก 11500 แถวเข้า org_person
+2026-11-24 13:41:03,814 [INFO] [PERSON] 09491: บันทึก 12000 แถวเข้า org_person
+2026-11-24 13:41:03,856 [INFO] [PERSON] 09491: บันทึก 12500 แถวเข้า org_person
+2026-11-24 13:41:03,913 [INFO] [PERSON] 09491: บันทึก 13000 แถวเข้า org_person
+2026-11-24 13:41:03,922 [INFO] [PERSON] 09491: บันทึก 13034 แถวเข้า org_person
+2026-11-24 13:41:03,922 [INFO] [PERSON] 09491: ดึงเข้า org_person สำเร็จ (13034 แถว)
+2026-11-24 13:41:03,934 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.สะกอม)
+2026-11-24 13:41:04,275 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 13:41:04,357 [INFO] [PERSON] 09499: บันทึก 500 แถวเข้า org_person
+2026-11-24 13:41:04,448 [INFO] [PERSON] 09499: บันทึก 1000 แถวเข้า org_person
+2026-11-24 13:41:04,518 [INFO] [PERSON] 09499: บันทึก 1500 แถวเข้า org_person
+2026-11-24 13:41:04,595 [INFO] [PERSON] 09499: บันทึก 2000 แถวเข้า org_person
+2026-11-24 13:41:04,714 [INFO] [PERSON] 09499: บันทึก 2500 แถวเข้า org_person
+2026-11-24 13:41:04,776 [INFO] [PERSON] 09499: บันทึก 3000 แถวเข้า org_person
+2026-11-24 13:41:04,863 [INFO] [PERSON] 09499: บันทึก 3500 แถวเข้า org_person
+2026-11-24 13:41:04,933 [INFO] [PERSON] 09499: บันทึก 4000 แถวเข้า org_person
+2026-11-24 13:41:05,056 [INFO] [PERSON] 09499: บันทึก 4500 แถวเข้า org_person
+2026-11-24 13:41:05,185 [INFO] [PERSON] 09499: บันทึก 5000 แถวเข้า org_person
+2026-11-24 13:41:05,234 [INFO] [PERSON] 09499: บันทึก 5500 แถวเข้า org_person
+2026-11-24 13:41:05,319 [INFO] [PERSON] 09499: บันทึก 6000 แถวเข้า org_person
+2026-11-24 13:41:05,389 [INFO] [PERSON] 09499: บันทึก 6500 แถวเข้า org_person
+2026-11-24 13:41:05,516 [INFO] [PERSON] 09499: บันทึก 7000 แถวเข้า org_person
+2026-11-24 13:41:05,565 [INFO] [PERSON] 09499: บันทึก 7500 แถวเข้า org_person
+2026-11-24 13:41:05,705 [INFO] [PERSON] 09499: บันทึก 8000 แถวเข้า org_person
+2026-11-24 13:41:05,742 [INFO] [PERSON] 09499: บันทึก 8500 แถวเข้า org_person
+2026-11-24 13:41:05,851 [INFO] [PERSON] 09499: บันทึก 9000 แถวเข้า org_person
+2026-11-24 13:41:05,919 [INFO] [PERSON] 09499: บันทึก 9500 แถวเข้า org_person
+2026-11-24 13:41:06,023 [INFO] [PERSON] 09499: บันทึก 10000 แถวเข้า org_person
+2026-11-24 13:41:06,092 [INFO] [PERSON] 09499: บันทึก 10500 แถวเข้า org_person
+2026-11-24 13:41:06,104 [INFO] [PERSON] 09499: บันทึก 10642 แถวเข้า org_person
+2026-11-24 13:41:06,106 [INFO] [PERSON] 09499: ดึงเข้า org_person สำเร็จ (10642 แถว)
+2026-11-24 13:41:09,178 [INFO] [PERSON] Step 1: อ่านข้อมูลจากฐานอำเภอ
+2026-11-24 13:41:09,214 [INFO] [PERSON] Step 2: อ่าน org_person (25 คอลัมน์, 23676 แถว)
+2026-11-24 13:41:09,334 [INFO] [PERSON] Step 3: ล็อก store_person สำเร็จ
+2026-11-24 13:41:09,396 [INFO] [PERSON] Step 3: ข้ามคอลัมน์ที่ไม่มีใน staging: district_synced_at
+2026-11-24 13:41:09,397 [INFO] [PERSON] Step 3: เริ่มส่งข้อมูลเข้า store_person
+2026-11-24 13:41:09,516 [INFO] [PERSON] Step 3: ส่งเข้า store_person (500/23676)
+2026-11-24 13:41:09,601 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1000/23676)
+2026-11-24 13:41:09,671 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1500/23676)
+2026-11-24 13:41:09,746 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2000/23676)
+2026-11-24 13:41:09,819 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2500/23676)
+2026-11-24 13:41:09,887 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3000/23676)
+2026-11-24 13:41:09,958 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3500/23676)
+2026-11-24 13:41:10,020 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4000/23676)
+2026-11-24 13:41:10,080 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4500/23676)
+2026-11-24 13:41:10,147 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5000/23676)
+2026-11-24 13:41:10,213 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5500/23676)
+2026-11-24 13:41:10,280 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6000/23676)
+2026-11-24 13:41:10,345 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6500/23676)
+2026-11-24 13:41:10,416 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7000/23676)
+2026-11-24 13:41:10,477 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7500/23676)
+2026-11-24 13:41:10,547 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8000/23676)
+2026-11-24 13:41:10,621 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8500/23676)
+2026-11-24 13:41:10,701 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9000/23676)
+2026-11-24 13:41:10,771 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9500/23676)
+2026-11-24 13:41:10,831 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10000/23676)
+2026-11-24 13:41:10,887 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10500/23676)
+2026-11-24 13:41:10,947 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11000/23676)
+2026-11-24 13:41:11,016 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11500/23676)
+2026-11-24 13:41:11,078 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12000/23676)
+2026-11-24 13:41:11,149 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12500/23676)
+2026-11-24 13:41:11,221 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13000/23676)
+2026-11-24 13:41:11,299 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13500/23676)
+2026-11-24 13:41:11,377 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14000/23676)
+2026-11-24 13:41:11,454 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14500/23676)
+2026-11-24 13:41:11,527 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15000/23676)
+2026-11-24 13:41:11,593 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15500/23676)
+2026-11-24 13:41:11,656 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16000/23676)
+2026-11-24 13:41:11,719 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16500/23676)
+2026-11-24 13:41:11,783 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17000/23676)
+2026-11-24 13:41:11,847 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17500/23676)
+2026-11-24 13:41:11,912 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18000/23676)
+2026-11-24 13:41:11,987 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18500/23676)
+2026-11-24 13:41:12,058 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19000/23676)
+2026-11-24 13:41:12,130 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19500/23676)
+2026-11-24 13:41:12,203 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20000/23676)
+2026-11-24 13:41:12,272 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20500/23676)
+2026-11-24 13:41:12,343 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21000/23676)
+2026-11-24 13:41:12,416 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21500/23676)
+2026-11-24 13:41:12,478 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22000/23676)
+2026-11-24 13:41:12,547 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22500/23676)
+2026-11-24 13:41:12,617 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23000/23676)
+2026-11-24 13:41:12,683 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23500/23676)
+2026-11-24 13:41:12,730 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23676/23676)
+2026-11-24 13:41:12,736 [INFO] [PERSON] Step 4: เรียก sp_merge_person เพื่อ merge ลง real table
+2026-11-24 13:41:13,178 [INFO] [PERSON] Step 4: merge สำเร็จ (23676 แถว)
+2026-11-24 13:59:11,841 [INFO] หยุด Auto-Scheduler แล้ว
+2026-11-24 14:07:02,348 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.ตูหยง)
+2026-11-24 14:07:02,442 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 14:07:02,511 [INFO] [PERSON] 09491: บันทึก 500 แถวเข้า org_person
+2026-11-24 14:07:02,547 [INFO] [PERSON] 09491: บันทึก 1000 แถวเข้า org_person
+2026-11-24 14:07:02,599 [INFO] [PERSON] 09491: บันทึก 1500 แถวเข้า org_person
+2026-11-24 14:07:02,638 [INFO] [PERSON] 09491: บันทึก 2000 แถวเข้า org_person
+2026-11-24 14:07:02,668 [INFO] [PERSON] 09491: บันทึก 2500 แถวเข้า org_person
+2026-11-24 14:07:02,703 [INFO] [PERSON] 09491: บันทึก 3000 แถวเข้า org_person
+2026-11-24 14:07:02,754 [INFO] [PERSON] 09491: บันทึก 3500 แถวเข้า org_person
+2026-11-24 14:07:02,791 [INFO] [PERSON] 09491: บันทึก 4000 แถวเข้า org_person
+2026-11-24 14:07:02,824 [INFO] [PERSON] 09491: บันทึก 4500 แถวเข้า org_person
+2026-11-24 14:07:02,862 [INFO] [PERSON] 09491: บันทึก 5000 แถวเข้า org_person
+2026-11-24 14:07:02,888 [INFO] [PERSON] 09491: บันทึก 5500 แถวเข้า org_person
+2026-11-24 14:07:02,928 [INFO] [PERSON] 09491: บันทึก 6000 แถวเข้า org_person
+2026-11-24 14:07:02,965 [INFO] [PERSON] 09491: บันทึก 6500 แถวเข้า org_person
+2026-11-24 14:07:02,999 [INFO] [PERSON] 09491: บันทึก 7000 แถวเข้า org_person
+2026-11-24 14:07:03,044 [INFO] [PERSON] 09491: บันทึก 7500 แถวเข้า org_person
+2026-11-24 14:07:03,072 [INFO] [PERSON] 09491: บันทึก 8000 แถวเข้า org_person
+2026-11-24 14:07:03,268 [INFO] [PERSON] 09491: บันทึก 8500 แถวเข้า org_person
+2026-11-24 14:07:03,294 [INFO] [PERSON] 09491: บันทึก 9000 แถวเข้า org_person
+2026-11-24 14:07:03,325 [INFO] [PERSON] 09491: บันทึก 9500 แถวเข้า org_person
+2026-11-24 14:07:03,358 [INFO] [PERSON] 09491: บันทึก 10000 แถวเข้า org_person
+2026-11-24 14:07:03,387 [INFO] [PERSON] 09491: บันทึก 10500 แถวเข้า org_person
+2026-11-24 14:07:03,406 [INFO] [PERSON] 09491: บันทึก 11000 แถวเข้า org_person
+2026-11-24 14:07:03,453 [INFO] [PERSON] 09491: บันทึก 11500 แถวเข้า org_person
+2026-11-24 14:07:03,493 [INFO] [PERSON] 09491: บันทึก 12000 แถวเข้า org_person
+2026-11-24 14:07:03,541 [INFO] [PERSON] 09491: บันทึก 12500 แถวเข้า org_person
+2026-11-24 14:07:03,591 [INFO] [PERSON] 09491: บันทึก 13000 แถวเข้า org_person
+2026-11-24 14:07:03,604 [INFO] [PERSON] 09491: บันทึก 13035 แถวเข้า org_person
+2026-11-24 14:07:03,604 [INFO] [PERSON] 09491: ดึงเข้า org_person สำเร็จ (13035 แถว)
+2026-11-24 14:07:03,620 [INFO] [PERSON] อ่าน SQL จาก JHCIS (รพ.สต.สะกอม)
+2026-11-24 14:07:03,984 [INFO] [PERSON] เริ่มบันทึกข้อมูลเข้า org_person
+2026-11-24 14:07:04,044 [INFO] [PERSON] 09499: บันทึก 500 แถวเข้า org_person
+2026-11-24 14:07:04,144 [INFO] [PERSON] 09499: บันทึก 1000 แถวเข้า org_person
+2026-11-24 14:07:04,212 [INFO] [PERSON] 09499: บันทึก 1500 แถวเข้า org_person
+2026-11-24 14:07:04,280 [INFO] [PERSON] 09499: บันทึก 2000 แถวเข้า org_person
+2026-11-24 14:07:04,405 [INFO] [PERSON] 09499: บันทึก 2500 แถวเข้า org_person
+2026-11-24 14:07:04,471 [INFO] [PERSON] 09499: บันทึก 3000 แถวเข้า org_person
+2026-11-24 14:07:04,588 [INFO] [PERSON] 09499: บันทึก 3500 แถวเข้า org_person
+2026-11-24 14:07:04,636 [INFO] [PERSON] 09499: บันทึก 4000 แถวเข้า org_person
+2026-11-24 14:07:04,737 [INFO] [PERSON] 09499: บันทึก 4500 แถวเข้า org_person
+2026-11-24 14:07:04,860 [INFO] [PERSON] 09499: บันทึก 5000 แถวเข้า org_person
+2026-11-24 14:07:04,920 [INFO] [PERSON] 09499: บันทึก 5500 แถวเข้า org_person
+2026-11-24 14:07:05,027 [INFO] [PERSON] 09499: บันทึก 6000 แถวเข้า org_person
+2026-11-24 14:07:05,096 [INFO] [PERSON] 09499: บันทึก 6500 แถวเข้า org_person
+2026-11-24 14:07:05,160 [INFO] [PERSON] 09499: บันทึก 7000 แถวเข้า org_person
+2026-11-24 14:07:05,248 [INFO] [PERSON] 09499: บันทึก 7500 แถวเข้า org_person
+2026-11-24 14:07:05,361 [INFO] [PERSON] 09499: บันทึก 8000 แถวเข้า org_person
+2026-11-24 14:07:05,439 [INFO] [PERSON] 09499: บันทึก 8500 แถวเข้า org_person
+2026-11-24 14:07:05,495 [INFO] [PERSON] 09499: บันทึก 9000 แถวเข้า org_person
+2026-11-24 14:07:05,580 [INFO] [PERSON] 09499: บันทึก 9500 แถวเข้า org_person
+2026-11-24 14:07:05,680 [INFO] [PERSON] 09499: บันทึก 10000 แถวเข้า org_person
+2026-11-24 14:07:05,770 [INFO] [PERSON] 09499: บันทึก 10500 แถวเข้า org_person
+2026-11-24 14:07:05,788 [INFO] [PERSON] 09499: บันทึก 10642 แถวเข้า org_person
+2026-11-24 14:07:05,788 [INFO] [PERSON] 09499: ดึงเข้า org_person สำเร็จ (10642 แถว)
+2026-11-24 14:07:08,718 [INFO] [PERSON] Step 1: อ่านข้อมูลจากฐานอำเภอ
+2026-11-24 14:07:08,734 [INFO] [PERSON] Step 2: อ่าน org_person (25 คอลัมน์, 23677 แถว)
+2026-11-24 14:07:08,868 [INFO] [PERSON] Step 3: ล็อก store_person สำเร็จ
+2026-11-24 14:07:08,922 [INFO] [PERSON] Step 3: ข้ามคอลัมน์ที่ไม่มีใน staging: district_synced_at
+2026-11-24 14:07:08,922 [INFO] [PERSON] Step 3: เริ่มส่งข้อมูลเข้า store_person
+2026-11-24 14:07:09,039 [INFO] [PERSON] Step 3: ส่งเข้า store_person (500/23677)
+2026-11-24 14:07:09,133 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1000/23677)
+2026-11-24 14:07:09,218 [INFO] [PERSON] Step 3: ส่งเข้า store_person (1500/23677)
+2026-11-24 14:07:09,284 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2000/23677)
+2026-11-24 14:07:09,361 [INFO] [PERSON] Step 3: ส่งเข้า store_person (2500/23677)
+2026-11-24 14:07:09,427 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3000/23677)
+2026-11-24 14:07:09,504 [INFO] [PERSON] Step 3: ส่งเข้า store_person (3500/23677)
+2026-11-24 14:07:09,575 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4000/23677)
+2026-11-24 14:07:09,648 [INFO] [PERSON] Step 3: ส่งเข้า store_person (4500/23677)
+2026-11-24 14:07:09,708 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5000/23677)
+2026-11-24 14:07:09,780 [INFO] [PERSON] Step 3: ส่งเข้า store_person (5500/23677)
+2026-11-24 14:07:09,847 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6000/23677)
+2026-11-24 14:07:09,937 [INFO] [PERSON] Step 3: ส่งเข้า store_person (6500/23677)
+2026-11-24 14:07:10,009 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7000/23677)
+2026-11-24 14:07:10,092 [INFO] [PERSON] Step 3: ส่งเข้า store_person (7500/23677)
+2026-11-24 14:07:10,162 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8000/23677)
+2026-11-24 14:07:10,238 [INFO] [PERSON] Step 3: ส่งเข้า store_person (8500/23677)
+2026-11-24 14:07:10,309 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9000/23677)
+2026-11-24 14:07:10,384 [INFO] [PERSON] Step 3: ส่งเข้า store_person (9500/23677)
+2026-11-24 14:07:10,457 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10000/23677)
+2026-11-24 14:07:10,529 [INFO] [PERSON] Step 3: ส่งเข้า store_person (10500/23677)
+2026-11-24 14:07:10,608 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11000/23677)
+2026-11-24 14:07:10,713 [INFO] [PERSON] Step 3: ส่งเข้า store_person (11500/23677)
+2026-11-24 14:07:10,782 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12000/23677)
+2026-11-24 14:07:10,841 [INFO] [PERSON] Step 3: ส่งเข้า store_person (12500/23677)
+2026-11-24 14:07:10,903 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13000/23677)
+2026-11-24 14:07:10,969 [INFO] [PERSON] Step 3: ส่งเข้า store_person (13500/23677)
+2026-11-24 14:07:11,033 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14000/23677)
+2026-11-24 14:07:11,098 [INFO] [PERSON] Step 3: ส่งเข้า store_person (14500/23677)
+2026-11-24 14:07:11,176 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15000/23677)
+2026-11-24 14:07:11,257 [INFO] [PERSON] Step 3: ส่งเข้า store_person (15500/23677)
+2026-11-24 14:07:11,338 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16000/23677)
+2026-11-24 14:07:11,409 [INFO] [PERSON] Step 3: ส่งเข้า store_person (16500/23677)
+2026-11-24 14:07:11,489 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17000/23677)
+2026-11-24 14:07:11,561 [INFO] [PERSON] Step 3: ส่งเข้า store_person (17500/23677)
+2026-11-24 14:07:11,632 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18000/23677)
+2026-11-24 14:07:11,702 [INFO] [PERSON] Step 3: ส่งเข้า store_person (18500/23677)
+2026-11-24 14:07:11,779 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19000/23677)
+2026-11-24 14:07:11,853 [INFO] [PERSON] Step 3: ส่งเข้า store_person (19500/23677)
+2026-11-24 14:07:11,925 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20000/23677)
+2026-11-24 14:07:11,996 [INFO] [PERSON] Step 3: ส่งเข้า store_person (20500/23677)
+2026-11-24 14:07:12,068 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21000/23677)
+2026-11-24 14:07:12,144 [INFO] [PERSON] Step 3: ส่งเข้า store_person (21500/23677)
+2026-11-24 14:07:12,209 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22000/23677)
+2026-11-24 14:07:12,294 [INFO] [PERSON] Step 3: ส่งเข้า store_person (22500/23677)
+2026-11-24 14:07:12,360 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23000/23677)
+2026-11-24 14:07:12,460 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23500/23677)
+2026-11-24 14:07:12,514 [INFO] [PERSON] Step 3: ส่งเข้า store_person (23677/23677)
+2026-11-24 14:07:12,515 [INFO] [PERSON] Step 4: เรียก sp_merge_person เพื่อ merge ลง real table
+2026-11-24 14:07:12,927 [INFO] [PERSON] Step 4: merge สำเร็จ (23677 แถว)
+2026-11-24 14:07:26,182 [INFO] หยุด Auto-Scheduler แล้ว
