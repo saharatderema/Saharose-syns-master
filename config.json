@@ -1,0 +1,72 @@
+{
+  "district_db": {
+    "host": "127.0.0.1",
+    "database": "district_db",
+    "user": "root",
+    "password": "",
+    "port": 3306
+  },
+  "district_sync_schedule": {
+    "enabled": false,
+    "sync_times": [
+      "12:00",
+      "17:00"
+    ],
+    "notify_on_auto": true
+  },
+  "hostatom_db": {
+    "host": "27.254.134.24",
+    "database": "ffs",
+    "user": "thephad_thephad",
+    "password": "14sYR2xk1u",
+    "port": 3306,
+    "batch_size": 500
+  },
+  "jhcis_default": {
+    "port": 3333,
+    "database": "test",
+    "user": "root",
+    "password": ""
+  },
+  "schedule": {
+    "enabled": false,
+    "sync_times": [
+      "12:00",
+      "16:30"
+    ],
+    "target_mode": "selected",
+    "notify_on_auto": true
+  },
+  "start_with_windows": true,
+  "notification": {
+    "telegram_enabled": false,
+    "telegram_bot_token": "",
+    "telegram_chat_id": "",
+    "line_enabled": false,
+    "line_channel_token": "",
+    "line_user_id": ""
+  },
+  "hospitals": [
+    {
+      "code": "09491",
+      "name": "รพ.สต.ตูหยง",
+      "ip": "26.9.176.145",
+      "port": 3333,
+      "selected": true,
+      "database": "jhcisdb",
+      "user": "root",
+      "password": "123456"
+    },
+    {
+      "code": "09499",
+      "name": "รพ.สต.สะกอม",
+      "ip": "26.3.74.199",
+      "port": 3333,
+      "selected": true,
+      "database": "jhcisdb",
+      "user": "root",
+      "password": "123456"
+    }
+  ],
+  "person_sql": "SELECT\n*\nFROM `person`"
+}
