@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import mysql.connector
 from mysql.connector import Error
+from mysql.connector.constants import FieldType
 
 LOG_FILE = "sync.log"
 CONFIG_FILE = "config.json"
@@ -335,6 +336,39 @@ def preview_person_sql(hospital, jhcis_default, query, max_rows=100):
     finally:
         try:
             connection.rollback()
+        finally:
+            try:
+                if cursor is not None:
+                    cursor.close()
+            finally:
+                connection.close()
+
+
+def inspect_jhcis_select_columns(hospital, jhcis_default, query):
+    validate_read_only_select(query)
+    connection = get_jhcis_connection(hospital, jhcis_default)
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("START TRANSACTION READ ONLY")
+        cursor.execute(query)
+        if cursor.description is None:
+            raise ValueError("SQL ต้องคืนผลลัพธ์เป็นชุดข้อมูล")
+        return [
+            {
+                "name": description[0],
+                "mysql_type": FieldType.get_info(description[1]),
+                "column_size": description[3] or description[2],
+            }
+            for description in cursor.description
+        ]
+    finally:
+        try:
+            if connection is not None:
+                try:
+                    connection.rollback()
+                except Error as error:
+                    log_error(f"ยกเลิกการอ่าน Metadata จาก JHCIS ไม่สำเร็จ: {error}")
         finally:
             try:
                 if cursor is not None:
@@ -685,6 +719,37 @@ def delete_sql_mapping(district_db, mapping_id):
         raise
     finally:
         connection.close()
+
+
+def execute_generated_ddl(target, statements, config):
+    if not isinstance(statements, (list, tuple)) or not statements:
+        raise ValueError("ไม่มีคำสั่ง SQL สำหรับดำเนินการ")
+    if target == "district":
+        connection = get_district_connection(get_district_db_config(config))
+    elif target == "host":
+        hostatom_db = config.get("hostatom_db", {})
+        connection = get_district_sync_hostatom_connection(hostatom_db)
+    else:
+        raise ValueError(f"ไม่รู้จักฐานข้อมูลปลายทาง: {target}")
+
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        for statement in statements:
+            cursor.execute(statement)
+        connection.commit()
+    except Exception:
+        try:
+            connection.rollback()
+        except Error as rollback_error:
+            log_error(f"rollback DDL {target} ไม่สำเร็จ: {rollback_error}")
+        raise
+    finally:
+        try:
+            if cursor is not None:
+                cursor.close()
+        finally:
+            connection.close()
 
 
 def _dynamic_report(task_code, message, current, total, progress_callback):

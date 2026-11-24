@@ -7,7 +7,7 @@ SAHARose Sync Master - UI Design System
 import tkinter as tk
 import tkinter.font as tkfont
 from tkinter import ttk
-from typing import Dict, Any, Tuple
+from typing import Dict, Any
 import customtkinter as ctk
 
 ctk.set_appearance_mode("Light")
@@ -174,6 +174,7 @@ def setup_default_fonts(root: tk.Tk) -> str:
         ),
         default_mono,
     )
+    sql_mono_family = installed_fonts.get("consolas", mono_family)
 
     FONTS.clear()
     FONTS.update({
@@ -185,6 +186,9 @@ def setup_default_fonts(root: tk.Tk) -> str:
         "HERO": ctk.CTkFont(family=family, size=26, weight="bold"),
         "MONO": ctk.CTkFont(family=mono_family, size=13, weight="normal"),
         "MONO_CAPTION": ctk.CTkFont(family=mono_family, size=11, weight="normal"),
+        "SQL": ctk.CTkFont(
+            family=sql_mono_family, size=13, weight="normal"
+        ),
     })
 
     Typography.FONT_FAMILY_SANS = family
@@ -225,6 +229,13 @@ def setup_default_fonts(root: tk.Tk) -> str:
     style.configure("Treeview", font=FONTS["BODY"], rowheight=34)
     style.configure("Treeview.Heading", font=FONTS["H3"])
     return family
+
+
+def get_font(role: str) -> ctk.CTkFont:
+    try:
+        return FONTS[role.upper()]
+    except KeyError as error:
+        raise ValueError(f"Unknown font role: {role}") from error
 
 
 class Icons:
@@ -314,6 +325,7 @@ class ThemeManager:
         self._setup_base_theme()
 
     def _setup_base_theme(self):
+        self.root.configure(fg_color=Colors.BG_PRIMARY)
         try:
             self.style.theme_use("clam")
         except tk.TclError:
@@ -842,7 +854,6 @@ class _CTkWidgets:
 
 
 ctk_widgets = _CTkWidgets()
-ttk = ctk_widgets
 
 
 class ContentStack(ctk.CTkFrame):
@@ -1119,20 +1130,21 @@ def enable_windows_high_dpi_awareness() -> bool:
 
 if __name__ == "__main__":
     root = ctk.CTk()
+    widgets = ctk_widgets
     setup_default_fonts(root)
     root.title("SAHARose UI Theme Demo")
     root.geometry("900x700")
     
     theme = init_theme(root)
     
-    main_frame = ttk.Frame(root, padding=Spacing.LG)
+    main_frame = widgets.Frame(root, padding=Spacing.LG)
     main_frame.pack(fill=tk.BOTH, expand=True)
     
     create_title_label(main_frame, "SAHARose Sync Master - UI Theme Demo").pack(anchor=tk.W, pady=(0, Spacing.XS))
     create_muted_label(main_frame, "Design System Components Showcase").pack(anchor=tk.W, pady=(0, Spacing.XXL))
     
     create_heading_label(main_frame, "Buttons").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    btn_frame = ttk.Frame(main_frame)
+    btn_frame = widgets.Frame(main_frame)
     btn_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
     
     create_primary_button(btn_frame, f"{Icons.PLAY} Primary").pack(side=tk.LEFT, padx=(0, Spacing.SM))
@@ -1145,24 +1157,24 @@ if __name__ == "__main__":
     create_small_button(btn_frame, f"{Icons.DELETE} Small Danger", variant="Danger").pack(side=tk.LEFT, padx=(0, Spacing.SM))
     
     create_heading_label(main_frame, "Cards").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    card_frame = ttk.Frame(main_frame)
+    card_frame = widgets.Frame(main_frame)
     card_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
 
 
     card1 = create_card(card_frame)
     card1.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, Spacing.SM))
-    ttk.Label(card1, text="Card Title", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
-    ttk.Label(card1, text="Card content goes here with some description text.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
+    widgets.Label(card1, text="Card Title", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
+    widgets.Label(card1, text="Card content goes here with some description text.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
     create_primary_button(card1, f"{Icons.SAVE} Action").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.MD))
     
     card2 = create_card(card_frame)
     card2.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(Spacing.SM, 0))
-    ttk.Label(card2, text="Elevated Card", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
-    ttk.Label(card2, text="Elevated card with more visual prominence.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
+    widgets.Label(card2, text="Elevated Card", font=FONTS["H3"]).pack(anchor=tk.W, padx=Spacing.MD, pady=(Spacing.MD, Spacing.XS))
+    widgets.Label(card2, text="Elevated card with more visual prominence.", style="Muted.TLabel").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.SM))
     create_secondary_button(card2, f"{Icons.SETTINGS} Configure").pack(anchor=tk.W, padx=Spacing.MD, pady=(0, Spacing.MD))
     
     create_heading_label(main_frame, "Status Labels").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    status_frame = ttk.Frame(main_frame)
+    status_frame = widgets.Frame(main_frame)
     status_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
     
     create_status_label(status_frame, f"{Icons.ONLINE} Online", "online").pack(side=tk.LEFT, padx=(0, Spacing.MD))
@@ -1173,44 +1185,44 @@ if __name__ == "__main__":
     create_status_label(status_frame, f"{Icons.PENDING} Pending", "pending").pack(side=tk.LEFT, padx=(0, Spacing.MD))
     
     create_heading_label(main_frame, "Progress Bars").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    prog_frame = ttk.Frame(main_frame)
+    prog_frame = widgets.Frame(main_frame)
     prog_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
     
     pb1 = create_progressbar(prog_frame, variant="default", value=65, maximum=100)
     pb1.pack(fill=tk.X, pady=(0, Spacing.SM))
-    ttk.Label(prog_frame, text="Default Progress: 65%", style="Caption.TLabel").pack(anchor=tk.W)
+    widgets.Label(prog_frame, text="Default Progress: 65%", style="Caption.TLabel").pack(anchor=tk.W)
 
 
     pb2 = create_progressbar(prog_frame, variant="success", value=100, maximum=100)
     pb2.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
-    ttk.Label(prog_frame, text="Success Progress: 100%", style="Caption.TLabel").pack(anchor=tk.W)
+    widgets.Label(prog_frame, text="Success Progress: 100%", style="Caption.TLabel").pack(anchor=tk.W)
     
     pb3 = create_progressbar(prog_frame, variant="warning", value=75, maximum=100)
     pb3.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
-    ttk.Label(prog_frame, text="Warning Progress: 75%", style="Caption.TLabel").pack(anchor=tk.W)
+    widgets.Label(prog_frame, text="Warning Progress: 75%", style="Caption.TLabel").pack(anchor=tk.W)
     
     pb4 = create_progressbar(prog_frame, variant="danger", value=30, maximum=100)
     pb4.pack(fill=tk.X, pady=(Spacing.SM, Spacing.XS))
-    ttk.Label(prog_frame, text="Danger Progress: 30%", style="Caption.TLabel").pack(anchor=tk.W)
+    widgets.Label(prog_frame, text="Danger Progress: 30%", style="Caption.TLabel").pack(anchor=tk.W)
     
     create_heading_label(main_frame, "Form Inputs").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    input_frame = ttk.Frame(main_frame)
+    input_frame = widgets.Frame(main_frame)
     input_frame.pack(fill=tk.X, pady=(0, Spacing.LG))
     
-    ttk.Label(input_frame, text="Text Input:", style="Label.TLabel").grid(row=0, column=0, sticky=tk.W, pady=Spacing.XS)
-    entry = ttk.Entry(input_frame, width=30)
+    widgets.Label(input_frame, text="Text Input:", style="Label.TLabel").grid(row=0, column=0, sticky=tk.W, pady=Spacing.XS)
+    entry = widgets.Entry(input_frame, width=30)
     entry.grid(row=0, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=Spacing.XS, ipady=Spacing.XXS)
     entry.insert(0, "Sample input...")
     
-    ttk.Label(input_frame, text="Combobox:", style="Label.TLabel").grid(row=1, column=0, sticky=tk.W, pady=Spacing.XS)
-    combo = ttk.Combobox(input_frame, values=["Option 1", "Option 2", "Option 3"], width=28, state="readonly")
+    widgets.Label(input_frame, text="Combobox:", style="Label.TLabel").grid(row=1, column=0, sticky=tk.W, pady=Spacing.XS)
+    combo = widgets.Combobox(input_frame, values=["Option 1", "Option 2", "Option 3"], width=28, state="readonly")
     combo.grid(row=1, column=1, sticky=tk.EW, padx=(Spacing.SM, 0), pady=Spacing.XS)
     combo.current(0)
     
     input_frame.columnconfigure(1, weight=1)
     
     create_heading_label(main_frame, "Data Table (Treeview)").pack(anchor=tk.W, pady=(0, Spacing.SM))
-    tree_frame = ttk.Frame(main_frame)
+    tree_frame = widgets.Frame(main_frame)
     tree_frame.pack(fill=tk.BOTH, expand=True, pady=(0, Spacing.LG))
     
     tree = create_treeview(tree_frame, columns=("col1", "col2", "col3", "col4"), show="headings")
@@ -1240,7 +1252,7 @@ if __name__ == "__main__":
     tree.tag_configure("danger", foreground=Colors.DANGER)
     tree.tag_configure("warning", foreground=Colors.WARNING)
     
-    y_scroll = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
+    y_scroll = widgets.Scrollbar(tree_frame, orient=tk.VERTICAL, command=tree.yview)
     tree.configure(yscrollcommand=y_scroll.set)
     tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
     y_scroll.pack(side=tk.RIGHT, fill=tk.Y)

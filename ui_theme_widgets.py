@@ -30,6 +30,7 @@ from ui_theme import (
     create_treeview,
     create_title_label,
     create_warning_button,
+    get_font,
     init_theme,
     setup_default_fonts,
 )

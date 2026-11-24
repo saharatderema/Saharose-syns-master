@@ -6,11 +6,13 @@ main.py - หน้าต่างหลักของโปรแกรม SAH
 """
 
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import filedialog, messagebox
 import customtkinter as ctk
 import copy
 import json
+import logging
 import os
+import queue
 import re
 import sys
 import subprocess
@@ -40,9 +42,13 @@ from sync_engine import (
     get_jhcis_table_columns, preview_person_sql, validate_read_only_select,
     get_hospital_port, get_district_db_config,
     test_district_connection, test_district_sync_hostatom_connection,
-    get_sql_mappings, save_sql_mapping,
+    get_sql_mappings, save_sql_mapping, delete_sql_mapping,
+    inspect_jhcis_select_columns, execute_generated_ddl,
     run_sync_task, sync_jhcis_to_district,
     log_info, log_error, resource_path
+)
+from ddl_generator import (
+    SUPPORTED_COLUMN_TYPES, generate_mapping_scripts, suggested_column_type
 )
 from notifier import send_notification
 from district_sync_ui import DistrictSyncWindow
@@ -78,6 +84,21 @@ PERSON_MAPPING_FIELDS = (
 STARTUP_REGISTRY_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 STARTUP_REGISTRY_VALUE = "SAHARose Sync Master"
 DATABASE_STATUS_REFRESH_INTERVAL_MS = 60 * 1000
+
+
+class _ProcessMonitorHandler(logging.Handler):
+    """Forward application log records to the UI without touching Tk from workers."""
+
+    _APP_FILES = {"main.py", "sync_engine.py", "district_sync_ui.py"}
+
+    def __init__(self, message_queue):
+        super().__init__(level=logging.INFO)
+        self.message_queue = message_queue
+
+    def emit(self, record):
+        if os.path.basename(record.pathname).casefold() not in self._APP_FILES:
+            return
+        self.message_queue.put(self.format(record))
 
 
 def _windows_startup_command():
@@ -154,9 +175,24 @@ class JHCISPersonSyncApp:
         self.vpn_check_running = False
         self.database_status_check_job_id = None
         self.database_status_check_running = False
+        self._process_monitor_queue = queue.Queue()
+        self._process_monitor_handler = None
+        self._process_monitor_after_id = None
 
         self._setup_styles()
         self._setup_ui()
+        self._process_monitor_handler = _ProcessMonitorHandler(
+            self._process_monitor_queue
+        )
+        self._process_monitor_handler.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(message)s",
+            datefmt="%H:%M:%S",
+        ))
+        logging.getLogger().addHandler(self._process_monitor_handler)
+        self._queue_process_monitor("พร้อมแสดงขั้นตอนการประมวลผล")
+        self._process_monitor_after_id = self.root.after(
+            100, self._drain_process_monitor
+        )
         self._load_hospitals_to_tree()
         self.vpn_blink_job = self.root.after(500, self._blink_vpn_indicators)
         self.root.after(500, self._check_all_vpn)
@@ -223,7 +259,13 @@ class JHCISPersonSyncApp:
 
         hospitals_tab = ttk.Frame(self.content_notebook)
         mapping_tab = ttk.Frame(self.content_notebook)
-        control_tab = ttk.Frame(self.content_notebook)
+        control_tab = ttk.ScrollableFrame(
+            self.content_notebook,
+            fg_color="transparent",
+            corner_radius=0,
+            scrollbar_button_color=Colors.GRAY_300,
+            scrollbar_button_hover_color=Colors.GRAY_400,
+        )
         settings_tab = ttk.Frame(self.content_notebook)
         developer_tab = ttk.Frame(self.content_notebook)
         self.settings_tab = settings_tab
@@ -386,7 +428,7 @@ class JHCISPersonSyncApp:
                                                      command=self._check_all_vpn)
         self.btn_check_vpn.pack(side=tk.LEFT, padx=Spacing.SM)
 
-        self.btn_sync_manual = create_primary_button(btn_row2, text=f"{Icons.SYNC} ซิงค์ Person → Cloud DB",
+        self.btn_sync_manual = create_primary_button(btn_row2, text=f"{Icons.SYNC} ซิงค์ Person → Cloud DB (2 ขั้นตอน)",
                                                      command=self._manual_sync)
         self.btn_sync_manual.pack(side=tk.LEFT, padx=Spacing.SM)
 
@@ -420,6 +462,42 @@ class JHCISPersonSyncApp:
         self.chk_start_with_windows.pack(anchor=tk.W, pady=Spacing.XS)
         if winreg is None:
             self.chk_start_with_windows.state(["disabled"])
+
+        monitor_frame = create_card_section(
+            control_tab,
+            title=f"{Icons.CHART} หน้าต่างประมวลผลแบบเรียลไทม์",
+            padding=Spacing.MD,
+        )
+        monitor_frame.pack(
+            fill=tk.BOTH, expand=True, padx=Spacing.MD,
+            pady=(0, Spacing.MD),
+        )
+        monitor_frame.rowconfigure(1, weight=1)
+        monitor_frame.columnconfigure(0, weight=1)
+
+        monitor_toolbar = ttk.Frame(monitor_frame)
+        monitor_toolbar.grid(row=0, column=0, sticky=tk.EW, pady=(0, Spacing.XS))
+        self.process_monitor_state_var = tk.StringVar(value="พร้อมทำงาน")
+        create_muted_label(
+            monitor_toolbar, textvariable=self.process_monitor_state_var
+        ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+        create_small_button(
+            monitor_toolbar,
+            text="ล้างรายการ",
+            variant="Secondary",
+            command=self._clear_process_monitor,
+        ).pack(side=tk.RIGHT)
+
+        self.process_monitor_text = ttk.Text(
+            monitor_frame,
+            height=280,
+            wrap=tk.WORD,
+            font=FONTS["MONO"],
+            state=tk.DISABLED,
+        )
+        self.process_monitor_text.grid(
+            row=1, column=0, sticky=tk.NSEW
+        )
 
         flow_frame = create_card_section(hospitals_tab, title=f"{Icons.CHART} สถานะการไหลข้อมูล", padding=Spacing.MD)
         flow_frame.pack(fill=tk.X, padx=Spacing.MD, pady=(0, Spacing.MD))
@@ -494,6 +572,68 @@ class JHCISPersonSyncApp:
         self.toast_manager = ToastManager(self.root, self.toast_var, toast_label)
         self._bind_settings_scroll(settings_view)
 
+    def _queue_process_monitor(self, message, level=logging.INFO):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        level_name = logging.getLevelName(level)
+        self._process_monitor_queue.put(
+            f"{timestamp} [{level_name}] {message}"
+        )
+
+    def _drain_process_monitor(self):
+        self._process_monitor_after_id = None
+        try:
+            if not self.root.winfo_exists():
+                return
+        except tk.TclError:
+            return
+
+        state = (
+            "กำลังประมวลผล"
+            if self.sync_lock.locked() or self.vpn_check_running
+            else "พร้อมทำงาน"
+        )
+        if self.process_monitor_state_var.get() != state:
+            self.process_monitor_state_var.set(state)
+
+        messages = []
+        while len(messages) < 100:
+            try:
+                messages.append(self._process_monitor_queue.get_nowait())
+            except queue.Empty:
+                break
+
+        if messages:
+            self.process_monitor_text.configure(state=tk.NORMAL)
+            self.process_monitor_text.insert(
+                tk.END, "\n".join(messages) + "\n"
+            )
+            line_count = int(
+                self.process_monitor_text.index("end-1c").split(".")[0]
+            )
+            if line_count > 3000:
+                self.process_monitor_text.delete(
+                    "1.0", f"{line_count - 3000 + 1}.0"
+                )
+            self.process_monitor_text.see(tk.END)
+            self.process_monitor_text.configure(state=tk.DISABLED)
+
+        try:
+            self._process_monitor_after_id = self.root.after(
+                100, self._drain_process_monitor
+            )
+        except tk.TclError:
+            self._process_monitor_after_id = None
+
+    def _clear_process_monitor(self):
+        while True:
+            try:
+                self._process_monitor_queue.get_nowait()
+            except queue.Empty:
+                break
+        self.process_monitor_text.configure(state=tk.NORMAL)
+        self.process_monitor_text.delete("1.0", tk.END)
+        self.process_monitor_text.configure(state=tk.DISABLED)
+
     def _bind_settings_scroll(self, widget):
         widget.bind("<MouseWheel>", self._on_settings_mousewheel, add="+")
         for child in widget.winfo_children():
@@ -556,13 +696,25 @@ class JHCISPersonSyncApp:
         self.sql_mapping_rows = []
         self.sql_mapping_loaded = False
         self.sql_mapping_loading = False
+        self.sql_mapping_refresh_pending = False
         self.sql_mapping_request_id = 0
+        self.mapping_column_request_id = 0
+        self.mapping_column_loading = False
+        self.mapping_test_request_id = 0
+        self.mapping_column_defs = []
+        self.mapping_column_widgets = []
+        self.generated_mapping_scripts = None
+        self.mapping_form_id = None
+        self.mapping_form_dirty = False
+        self.mapping_form_loading = False
+        self.mapping_autofill_values = {}
+        self.mapping_save_in_progress = False
 
         toolbar = ttk.Frame(tab)
         toolbar.pack(fill=tk.X, padx=Spacing.MD, pady=(Spacing.MD, Spacing.SM))
         create_muted_label(
             toolbar,
-            text="รายการ Mapping จากตาราง sql_mapping ในฐานข้อมูลอำเภอ"
+            text="SQL Mapping และตัวสร้างสคริปต์ฐานข้อมูล"
         ).pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.sql_mapping_status_var = tk.StringVar(value="ยังไม่ได้โหลดรายการ Mapping")
         create_muted_label(toolbar, textvariable=self.sql_mapping_status_var).pack(
@@ -573,63 +725,900 @@ class JHCISPersonSyncApp:
             command=self._refresh_sql_mappings
         )
         self.btn_refresh_sql_mappings.pack(side=tk.RIGHT, padx=Spacing.SM)
-        self.btn_add_sql_mapping = create_small_button(
-            toolbar, text=f"{Icons.ADD} เพิ่ม Mapping", variant="Secondary",
-            command=self._add_sql_mapping
-        )
-        self.btn_add_sql_mapping.pack(side=tk.RIGHT, padx=Spacing.SM)
-        self.btn_edit_sql_mapping = create_small_button(
-            toolbar, text=f"{Icons.EDIT} แก้ไข Mapping", variant="Ghost",
-            command=self._edit_sql_mapping
-        )
-        self.btn_edit_sql_mapping.pack(side=tk.RIGHT, padx=Spacing.SM)
-        self.btn_edit_sql_mapping.configure(state=tk.DISABLED)
 
-        table_frame = create_card_section(tab, title=f"{Icons.TABLE} ข้อมูล Mapping", padding=Spacing.MD)
-        table_frame.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(0, Spacing.MD))
-        table_frame.rowconfigure(0, weight=1)
-        table_frame.columnconfigure(0, weight=1)
-        columns = (
-            "task_code", "task_name", "source", "staging",
-            "procedure", "active", "sort_order", "updated_at"
+        workspace = ttk.Frame(tab)
+        workspace.pack(fill=tk.BOTH, expand=True, padx=Spacing.MD, pady=(0, Spacing.MD))
+        workspace.grid_rowconfigure(0, weight=1)
+        workspace.grid_columnconfigure(0, weight=3, uniform="sql_mapping_columns")
+        workspace.grid_columnconfigure(1, weight=7, uniform="sql_mapping_columns")
+
+        list_card = create_card_section(
+            workspace, title=f"{Icons.TABLE} SQL Mapping", padding=Spacing.SM
         )
+        list_card.grid(row=0, column=0, sticky=tk.NSEW, padx=(0, Spacing.SM))
+        list_card.grid_rowconfigure(1, weight=1)
+        list_card.grid_columnconfigure(0, weight=1)
+        self.btn_add_sql_mapping = create_primary_button(
+            list_card,
+            text=f"{Icons.ADD} เพิ่ม Mapping ใหม่",
+            command=self._add_sql_mapping,
+        )
+        self.btn_add_sql_mapping.grid(
+            row=0, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(Spacing.SM, 0)
+        )
+        columns = ("task_code", "task_name", "source", "active", "sort_order")
         self.sql_mapping_tree = create_treeview(
-            table_frame, columns=columns, show="headings", selectmode="browse"
+            list_card, columns=columns, show="headings", selectmode="browse"
         )
         for column, title, width in (
             ("task_code", "รหัสงาน", 100),
-            ("task_name", "ชื่อข้อมูล", 180),
-            ("source", "ตารางต้นทางอำเภอ", 150),
-            ("staging", "ตารางพัก Cloud DB", 150),
-            ("procedure", "Stored Procedure", 170),
-            ("active", "สถานะ", 85),
-            ("sort_order", "ลำดับ", 65),
-            ("updated_at", "แก้ไขล่าสุด", 145),
+            ("task_name", "ชื่อ", 135),
+            ("source", "District Table", 130),
+            ("active", "สถานะ", 75),
+            ("sort_order", "ลำดับ", 55),
         ):
             self.sql_mapping_tree.heading(column, text=title)
             self.sql_mapping_tree.column(
-                column, width=width, minwidth=60,
+                column, width=width, minwidth=45,
                 anchor=tk.CENTER if column in ("sort_order", "active") else tk.W
             )
         y_scroll = ttk.Scrollbar(
-            table_frame, orient=tk.VERTICAL, command=self.sql_mapping_tree.yview
+            list_card, orient=tk.VERTICAL, command=self.sql_mapping_tree.yview
         )
         x_scroll = ttk.Scrollbar(
-            table_frame, orient=tk.HORIZONTAL, command=self.sql_mapping_tree.xview
+            list_card, orient=tk.HORIZONTAL, command=self.sql_mapping_tree.xview
         )
         self.sql_mapping_tree.configure(
             yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set
         )
-        self.sql_mapping_tree.grid(row=0, column=0, sticky=tk.NSEW)
-        y_scroll.grid(row=0, column=1, sticky=tk.NS)
-        x_scroll.grid(row=1, column=0, sticky=tk.EW)
+        self.sql_mapping_tree.grid(
+            row=1, column=0, sticky=tk.NSEW,
+            padx=(Spacing.SM, 0), pady=Spacing.SM
+        )
+        y_scroll.grid(row=1, column=1, sticky=tk.NS, pady=Spacing.SM)
+        x_scroll.grid(row=2, column=0, sticky=tk.EW, padx=Spacing.SM)
         self.sql_mapping_tree.bind(
             "<<TreeviewSelect>>", self._on_sql_mapping_selection
         )
         self.sql_mapping_tree.bind("<Double-1>", self._on_sql_mapping_double_click)
 
+        self.mapping_work_area = ctk.CTkScrollableFrame(
+            workspace,
+            corner_radius=12,
+            fg_color=Colors.BG_PRIMARY,
+            scrollbar_button_color=Colors.GRAY_300,
+        )
+        self.mapping_work_area.grid(row=0, column=1, sticky=tk.NSEW)
+        self.mapping_work_area.grid_columnconfigure(0, weight=1)
+
+        self._build_mapping_form(self.mapping_work_area)
+        self._reset_sql_mapping_form()
+
+    def _build_mapping_form(self, parent):
+        form_card = create_card_section(
+            parent, title="1. ข้อมูลตั้งค่า Mapping", padding=Spacing.SM
+        )
+        form_card.pack(fill=tk.X, padx=Spacing.XS, pady=(Spacing.XS, Spacing.SM))
+        for column in range(4):
+            form_card.grid_columnconfigure(column, weight=1)
+
+        field_defs = (
+            ("task_code", "Task Code", 0, 0),
+            ("task_name", "Task Name", 0, 2),
+            ("local_source_table", "District Table", 1, 0),
+            ("host_staging_table", "Host Staging Table", 1, 2),
+            ("host_procedure_name", "Host Procedure Name", 2, 0),
+            ("sort_order", "Sort Order", 2, 2),
+        )
+        self.sql_mapping_entries = {}
+        for key, label, row, column in field_defs:
+            ctk.CTkLabel(
+                form_card, text=label, font=FONTS["CAPTION"],
+                text_color=Colors.TEXT_SECONDARY, anchor="w",
+            ).grid(
+                row=row * 2, column=column, sticky=tk.W,
+                padx=Spacing.SM, pady=(Spacing.SM, 0)
+            )
+            entry = ctk.CTkEntry(
+                form_card, height=36, corner_radius=8, font=FONTS["BODY"]
+            )
+            entry.grid(
+                row=row * 2 + 1, column=column, columnspan=2, sticky=tk.EW,
+                padx=Spacing.SM, pady=(Spacing.XXS, Spacing.XS)
+            )
+            self.sql_mapping_entries[key] = entry
+
+        self.sql_mapping_entries["task_code"].bind(
+            "<KeyRelease>", self._on_mapping_task_code_changed
+        )
+        for key, entry in self.sql_mapping_entries.items():
+            if key != "task_code":
+                entry.bind("<KeyRelease>", self._on_mapping_form_changed)
+
+        self.sql_mapping_active_var = tk.BooleanVar(value=True)
+        ctk.CTkSwitch(
+            form_card,
+            text="เปิดใช้งาน Mapping",
+            variable=self.sql_mapping_active_var,
+            font=FONTS["BODY"],
+            command=self._on_mapping_form_changed,
+        ).grid(
+            row=6, column=0, columnspan=2, sticky=tk.W,
+            padx=Spacing.SM, pady=Spacing.SM
+        )
+        self.mapping_form_status_var = tk.StringVar(value="เลือกรายการหรือเพิ่ม Mapping ใหม่")
+        ctk.CTkLabel(
+            form_card,
+            textvariable=self.mapping_form_status_var,
+            font=FONTS["CAPTION"],
+            text_color=Colors.TEXT_SECONDARY,
+            anchor="w",
+        ).grid(
+            row=6, column=2, columnspan=2, sticky=tk.EW,
+            padx=Spacing.SM, pady=Spacing.SM
+        )
+
+        form_buttons = ctk.CTkFrame(form_card, fg_color="transparent")
+        form_buttons.grid(
+            row=7, column=0, columnspan=4, sticky=tk.EW,
+            padx=Spacing.SM, pady=(0, Spacing.SM)
+        )
+        self.btn_save_sql_mapping = create_primary_button(
+            form_buttons, text=f"{Icons.SAVE} บันทึก Mapping",
+            command=self._save_sql_mapping_form,
+        )
+        self.btn_save_sql_mapping.pack(side=tk.LEFT, padx=(0, Spacing.SM))
+        self.btn_delete_sql_mapping = create_danger_button(
+            form_buttons, text=f"{Icons.DELETE} ลบรายการ",
+            command=self._delete_sql_mapping_form,
+        )
+        self.btn_delete_sql_mapping.pack(side=tk.LEFT)
+
+        sql_card = create_card_section(
+            parent,
+            title="2. SQL ดึงข้อมูล JHCIS และโครงสร้างคอลัมน์",
+            padding=Spacing.SM,
+        )
+        sql_card.pack(fill=tk.X, padx=Spacing.XS, pady=(0, Spacing.SM))
+        sql_card.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            sql_card,
+            text="คำสั่งต้องเป็น SELECT แบบอ่านอย่างเดียว และชื่อคอลัมน์ต้องตรงกับ District Table",
+            font=FONTS["CAPTION"],
+            text_color=Colors.TEXT_SECONDARY,
+            anchor="w",
+        ).grid(row=0, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(Spacing.XS, 0))
+        self.mapping_sql_text = ctk.CTkTextbox(
+            sql_card,
+            height=190,
+            wrap="none",
+            font=FONTS["SQL"],
+            corner_radius=8,
+            border_width=1,
+        )
+        self.mapping_sql_text.grid(
+            row=1, column=0, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+        )
+        self.mapping_sql_text.bind(
+            "<KeyRelease>", self._on_mapping_sql_changed
+        )
+        sql_toolbar = ctk.CTkFrame(sql_card, fg_color="transparent")
+        sql_toolbar.grid(
+            row=2, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.XS)
+        )
+        self.btn_extract_mapping_columns = create_secondary_button(
+            sql_toolbar,
+            text="1. ดึงโครงสร้างคอลัมน์จาก SQL นี้",
+            command=self._extract_mapping_columns,
+        )
+        self.btn_extract_mapping_columns.pack(side=tk.LEFT, padx=(0, Spacing.XS))
+        self.btn_test_mapping_sql = create_ghost_button(
+            sql_toolbar, text=f"{Icons.PLAY} ทดสอบ Mapping",
+            command=self._test_sql_mapping_form,
+        )
+        self.btn_test_mapping_sql.pack(side=tk.LEFT, padx=Spacing.XS)
+        create_ghost_button(
+            sql_toolbar, text=f"{Icons.COPY} Copy Mapping",
+            command=self._copy_sql_mapping_query,
+        ).pack(side=tk.LEFT, padx=Spacing.XS)
+
+        self.mapping_column_frame = ctk.CTkScrollableFrame(
+            sql_card,
+            height=190,
+            corner_radius=8,
+            fg_color=Colors.WHITE,
+            border_width=1,
+            border_color=Colors.BORDER_LIGHT,
+        )
+        self.mapping_column_frame.grid(
+            row=3, column=0, sticky=tk.EW, padx=Spacing.SM, pady=Spacing.SM
+        )
+        self.mapping_column_rows_container = ctk.CTkFrame(
+            self.mapping_column_frame, fg_color="transparent"
+        )
+        self.mapping_column_rows_container.pack(fill=tk.BOTH, expand=True)
+        self._render_mapping_columns([])
+        self.mapping_column_status_var = tk.StringVar(
+            value="ยังไม่ได้ดึงโครงสร้างคอลัมน์"
+        )
+        ctk.CTkLabel(
+            sql_card,
+            textvariable=self.mapping_column_status_var,
+            font=FONTS["CAPTION"],
+            text_color=Colors.TEXT_SECONDARY,
+            anchor="w",
+        ).grid(row=4, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.XS))
+        self.btn_generate_mapping_ddl = create_primary_button(
+            sql_card,
+            text="2. สร้างสคริปต์ SQL สร้างตาราง (Generate SQL) →",
+            command=self._generate_mapping_ddl,
+        )
+        self.btn_generate_mapping_ddl.grid(
+            row=5, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.SM)
+        )
+
+        output_card = create_card_section(
+            parent,
+            title="3. ผลลัพธ์สคริปต์ SQL พร้อมใช้งาน",
+            padding=Spacing.SM,
+        )
+        output_card.pack(fill=tk.BOTH, expand=True, padx=Spacing.XS, pady=(0, Spacing.XS))
+        output_card.grid_columnconfigure(0, weight=1)
+        self.mapping_output_tabs = ctk.CTkTabview(
+            output_card, corner_radius=12, height=390
+        )
+        self.mapping_output_tabs.grid(
+            row=0, column=0, sticky=tk.NSEW, padx=Spacing.SM, pady=Spacing.SM
+        )
+        output_card.grid_rowconfigure(0, weight=1)
+        self.mapping_output_texts = {}
+        self.mapping_execute_buttons = {}
+        self.mapping_output_keys = {
+            "สคริปต์ฝั่งอำเภอ (District Table)": "district",
+            "Host Store & Real": "host_tables",
+            "สคริปต์ Procedure แม่ข่าย": "host_procedure",
+        }
+        for tab_name, key in self.mapping_output_keys.items():
+            output_tab = self.mapping_output_tabs.add(tab_name)
+            output_tab.grid_columnconfigure(0, weight=1)
+            output_tab.grid_rowconfigure(1, weight=1)
+            output_toolbar = ctk.CTkFrame(output_tab, fg_color="transparent")
+            output_toolbar.grid(
+                row=0, column=0, sticky=tk.EW, padx=Spacing.XS, pady=Spacing.XS
+            )
+            create_secondary_button(
+                output_toolbar, text=f"{Icons.COPY} คัดลอก (Copy)",
+                command=lambda selected_key=key: self._copy_generated_ddl(selected_key),
+            ).pack(side=tk.LEFT, padx=(0, Spacing.XS))
+            create_ghost_button(
+                output_toolbar, text="บันทึก .sql",
+                command=lambda selected_key=key: self._save_generated_ddl(selected_key),
+            ).pack(side=tk.LEFT, padx=Spacing.XS)
+            target_label = "District DB" if key == "district" else "Host DB"
+            execute_button = create_success_button(
+                output_toolbar, text=f"รันสร้างใน {target_label}",
+                command=lambda selected_key=key: self._execute_generated_ddl(selected_key),
+            )
+            execute_button.pack(side=tk.RIGHT, padx=(Spacing.XS, 0))
+            self.mapping_execute_buttons[key] = execute_button
+            output_text = ctk.CTkTextbox(
+                output_tab,
+                wrap="none",
+                font=FONTS["SQL"],
+                corner_radius=8,
+                border_width=1,
+                state="disabled",
+            )
+            output_text.grid(
+                row=1, column=0, sticky=tk.NSEW,
+                padx=Spacing.XS, pady=(0, Spacing.XS)
+            )
+            self.mapping_output_texts[key] = output_text
+        self.mapping_ddl_status_var = tk.StringVar(value="สร้างสคริปต์เพื่อเริ่มใช้งาน")
+        ctk.CTkLabel(
+            output_card,
+            textvariable=self.mapping_ddl_status_var,
+            font=FONTS["CAPTION"],
+            text_color=Colors.TEXT_SECONDARY,
+            anchor="w",
+        ).grid(row=1, column=0, sticky=tk.EW, padx=Spacing.SM, pady=(0, Spacing.SM))
+
+    def _reset_sql_mapping_form(self):
+        self._cancel_mapping_column_load()
+        self.mapping_test_request_id += 1
+        self.mapping_form_loading = True
+        self.mapping_form_id = None
+        self.mapping_form_dirty = False
+        self.mapping_autofill_values = {}
+        self.mapping_column_defs = []
+        for entry in self.sql_mapping_entries.values():
+            entry.delete(0, tk.END)
+        self.sql_mapping_entries["sort_order"].insert(0, "0")
+        self.sql_mapping_active_var.set(True)
+        self.mapping_sql_text.delete("1.0", tk.END)
+        self.mapping_form_status_var.set("เพิ่ม Mapping ใหม่")
+        self.mapping_column_status_var.set("ยังไม่ได้ดึงโครงสร้างคอลัมน์")
+        self._render_mapping_columns([])
+        self.generated_mapping_scripts = None
+        self._set_mapping_output_scripts({})
+        self.mapping_ddl_status_var.set("สร้างสคริปต์เพื่อเริ่มใช้งาน")
+        self.btn_delete_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        self.mapping_form_loading = False
+
+    def _set_mapping_entry(self, key, value):
+        entry = self.sql_mapping_entries[key]
+        entry.delete(0, tk.END)
+        if value is not None:
+            entry.insert(0, str(value))
+
+    def _mapping_generated_names(self, task_code):
+        if not task_code.strip():
+            return {
+                "local_source_table": "",
+                "host_staging_table": "",
+                "host_procedure_name": "",
+            }
+        suffix = re.sub(r"[^A-Za-z0-9_]", "_", task_code.lower()).strip("_")
+        suffix = suffix or "item"
+        return {
+            "local_source_table": f"org_{suffix}",
+            "host_staging_table": f"store_{suffix}",
+            "host_procedure_name": f"sp_merge_{suffix}",
+        }
+
+    def _load_sql_mapping_form(self, mapping):
+        mapping = dict(mapping)
+        self._cancel_mapping_column_load()
+        self.mapping_test_request_id += 1
+        self.mapping_form_loading = True
+        self.mapping_form_id = int(mapping["id"])
+        self.mapping_form_dirty = False
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        for key in ("task_code", "task_name", "local_source_table",
+                    "host_staging_table", "host_procedure_name", "sort_order"):
+            self._set_mapping_entry(key, mapping.get(key, mapping.get(
+                "district_table" if key == "local_source_table" else key, ""
+            )))
+        self.sql_mapping_active_var.set(bool(mapping.get("is_active", True)))
+        self.mapping_sql_text.delete("1.0", tk.END)
+        self.mapping_sql_text.insert(
+            "1.0", mapping.get("jhcis_extract_sql") or ""
+        )
+        self.mapping_autofill_values = self._mapping_generated_names(
+            self.sql_mapping_entries["task_code"].get().strip()
+        )
+        self.mapping_form_status_var.set(
+            f"กำลังแก้ไข Mapping {self.sql_mapping_entries['task_code'].get().strip()}"
+        )
+        self.mapping_column_defs = []
+        self._render_mapping_columns([])
+        self.mapping_column_status_var.set(
+            "ดึงโครงสร้างคอลัมน์จาก SQL เพื่อสร้าง DDL"
+        )
+        self.generated_mapping_scripts = None
+        self._set_mapping_output_scripts({})
+        self.mapping_ddl_status_var.set("สคริปต์ยังไม่ถูกสร้าง")
+        self.btn_delete_sql_mapping.configure(state=tk.NORMAL)
+        self.mapping_form_loading = False
+
+    def _cancel_mapping_column_load(self):
+        self.mapping_column_request_id += 1
+        if not self.mapping_column_loading:
+            return
+        self.mapping_column_loading = False
+        self.btn_extract_mapping_columns.configure(state=tk.NORMAL)
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        self.mapping_sql_text.configure(state=tk.NORMAL)
+
+    def _on_mapping_task_code_changed(self, event=None):
+        if self.mapping_form_loading:
+            return
+        generated = self._mapping_generated_names(
+            self.sql_mapping_entries["task_code"].get().strip()
+        )
+        for key, value in generated.items():
+            entry = self.sql_mapping_entries[key]
+            current = entry.get().strip()
+            previous = self.mapping_autofill_values.get(key, "")
+            if not current or current == previous:
+                self._set_mapping_entry(key, value)
+        self.mapping_autofill_values = generated
+        self._on_mapping_form_changed()
+
+    def _on_mapping_form_changed(self, event=None):
+        if self.mapping_form_loading:
+            return
+        self.mapping_form_dirty = True
+        self.mapping_form_status_var.set("มีการแก้ไขที่ยังไม่ได้บันทึก")
+        self._invalidate_generated_mapping_scripts(
+            "ข้อมูล Mapping เปลี่ยน กรุณาสร้างสคริปต์ใหม่"
+        )
+
+    def _on_mapping_sql_changed(self, event=None):
+        if self.mapping_form_loading:
+            return
+        self.mapping_test_request_id += 1
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        self.mapping_form_dirty = True
+        self.mapping_form_status_var.set("มีการแก้ไขที่ยังไม่ได้บันทึก")
+        self.mapping_column_defs = []
+        self._render_mapping_columns([])
+        self.mapping_column_status_var.set(
+            "SQL เปลี่ยนแล้ว กรุณาดึงโครงสร้างคอลัมน์ใหม่"
+        )
+        self._invalidate_generated_mapping_scripts(
+            "SQL เปลี่ยน กรุณาสร้างสคริปต์ใหม่"
+        )
+
+    def _invalidate_generated_mapping_scripts(self, status):
+        if self.generated_mapping_scripts is None:
+            return
+        self.generated_mapping_scripts = None
+        self._set_mapping_output_scripts({})
+        self.mapping_ddl_status_var.set(status)
+
+    def _render_mapping_columns(self, columns):
+        container = self.mapping_column_rows_container
+        for child in container.winfo_children():
+            child.destroy()
+        container.grid_columnconfigure(0, weight=1)
+        container.grid_columnconfigure(1, weight=0)
+        container.grid_columnconfigure(2, weight=0)
+        self.mapping_column_widgets = []
+
+        for column, title in enumerate(("ชื่อคอลัมน์", "Data Type", "Primary Key")):
+            ctk.CTkLabel(
+                container,
+                text=title,
+                font=FONTS["BUTTON"],
+                text_color=Colors.TEXT_SECONDARY,
+                anchor="w",
+            ).grid(
+                row=0, column=column, sticky=tk.EW,
+                padx=Spacing.XS, pady=Spacing.XS
+            )
+
+        if not columns:
+            ctk.CTkLabel(
+                container,
+                text="ยังไม่มีคอลัมน์ — กดปุ่มดึงโครงสร้างจาก SQL",
+                font=FONTS["CAPTION"],
+                text_color=Colors.TEXT_MUTED,
+            ).grid(row=1, column=0, columnspan=3, sticky=tk.W, padx=Spacing.XS)
+            return
+
+        task_code = self.sql_mapping_entries["task_code"].get().strip().upper()
+        for index, column in enumerate(columns, start=1):
+            name = str(column.get("name", "")).strip()
+            ctk.CTkLabel(
+                container,
+                text=name,
+                font=FONTS["SQL"],
+                text_color=Colors.TEXT_PRIMARY,
+                anchor="w",
+            ).grid(
+                row=index, column=0, sticky=tk.EW,
+                padx=Spacing.XS, pady=Spacing.XXS
+            )
+            data_type = ctk.CTkComboBox(
+                container,
+                values=list(SUPPORTED_COLUMN_TYPES),
+                state="readonly",
+                height=34,
+                corner_radius=8,
+                font=FONTS["BODY"],
+                command=self._on_mapping_column_changed,
+            )
+            data_type.set(
+                column.get("type")
+                or suggested_column_type(
+                    column.get("mysql_type"), column.get("column_size")
+                )
+            )
+            data_type.grid(
+                row=index, column=1, sticky=tk.EW,
+                padx=Spacing.XS, pady=Spacing.XXS
+            )
+            default_pk = (
+                name.casefold() in {"hospcode", "pcucodeperson", "pid"}
+                if task_code == "PERSON"
+                else name.casefold() == "id"
+            )
+            primary_key = ctk.CTkCheckBox(
+                container,
+                text="PK",
+                font=FONTS["CAPTION"],
+                command=self._on_mapping_column_changed,
+            )
+            if column.get("primary_key", default_pk):
+                primary_key.select()
+            primary_key.grid(
+                row=index, column=2, sticky=tk.W,
+                padx=Spacing.SM, pady=Spacing.XXS
+            )
+            self.mapping_column_widgets.append({
+                "name": name,
+                "type": data_type,
+                "primary_key": primary_key,
+            })
+
+    def _collect_mapping_columns(self):
+        return [
+            {
+                "name": column["name"],
+                "type": column["type"].get(),
+                "primary_key": bool(column["primary_key"].get()),
+            }
+            for column in self.mapping_column_widgets
+        ]
+
+    def _on_mapping_column_changed(self, value=None):
+        if value is not None and value not in SUPPORTED_COLUMN_TYPES:
+            return
+        self._invalidate_generated_mapping_scripts(
+            "โครงสร้างคอลัมน์เปลี่ยน กรุณาสร้างสคริปต์ใหม่"
+        )
+
+    def _set_mapping_output_scripts(self, scripts):
+        for key, output in self.mapping_output_texts.items():
+            output.configure(state=tk.NORMAL)
+            output.delete("1.0", tk.END)
+            if key in scripts:
+                output.insert("1.0", scripts[key])
+            output.configure(state=tk.DISABLED)
+
+    def _generate_mapping_ddl(self):
+        mapping = {
+            "task_code": self.sql_mapping_entries["task_code"].get().strip(),
+            "district_table": self.sql_mapping_entries[
+                "local_source_table"
+            ].get().strip(),
+            "host_staging_table": self.sql_mapping_entries[
+                "host_staging_table"
+            ].get().strip(),
+            "host_procedure_name": self.sql_mapping_entries[
+                "host_procedure_name"
+            ].get().strip(),
+        }
+        try:
+            generated = generate_mapping_scripts(
+                mapping, self._collect_mapping_columns()
+            )
+        except (TypeError, ValueError) as error:
+            self.mapping_ddl_status_var.set(f"สร้างสคริปต์ไม่สำเร็จ: {error}")
+            messagebox.showerror(
+                "สร้าง SQL ไม่สำเร็จ", str(error), parent=self.root
+            )
+            return
+        self.generated_mapping_scripts = generated
+        self._set_mapping_output_scripts(generated["scripts"])
+        self.mapping_output_tabs.set("สคริปต์ฝั่งอำเภอ (District Table)")
+        self.mapping_ddl_status_var.set(
+            "สร้างสคริปต์แล้ว — "
+            f"District: {generated['district_table']} | "
+            f"Host: {generated['host_staging_table']} / "
+            f"{generated['host_real_table']}"
+        )
+
+    def _copy_sql_mapping_query(self):
+        query = self.mapping_sql_text.get("1.0", "end-1c")
+        if not query.strip():
+            self.mapping_form_status_var.set("ไม่มี SQL ให้คัดลอก")
+            return
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(query)
+        except tk.TclError as error:
+            self.mapping_form_status_var.set(f"คัดลอก SQL ไม่สำเร็จ: {error}")
+            log_error(f"คัดลอก SQL Mapping ไม่สำเร็จ: {error}")
+            return
+        self.mapping_form_status_var.set("คัดลอก SQL JHCIS แล้ว")
+
+    def _extract_mapping_columns(self):
+        query = self.mapping_sql_text.get("1.0", "end-1c").strip()
+        try:
+            validate_read_only_select(query)
+        except ValueError as error:
+            self.mapping_column_status_var.set(f"SQL ไม่ถูกต้อง: {error}")
+            return
+        hospital = (
+            getattr(self, "mapping_hospital", None)
+            or self._get_mapping_hospital()
+        )
+        if hospital is None:
+            self.mapping_column_status_var.set("ไม่พบสถานบริการสำหรับเชื่อมต่อ JHCIS")
+            return
+        if self.mapping_column_loading:
+            return
+
+        self.mapping_column_request_id += 1
+        request_id = self.mapping_column_request_id
+        self.mapping_test_request_id += 1
+        hospital = dict(hospital)
+        jhcis_default = dict(self.config.get("jhcis_default", {}))
+        self.mapping_column_loading = True
+        self.btn_extract_mapping_columns.configure(state=tk.DISABLED)
+        self.btn_test_mapping_sql.configure(state=tk.DISABLED)
+        self.mapping_sql_text.configure(state=tk.DISABLED)
+        self.mapping_column_status_var.set("กำลังอ่าน Metadata จาก JHCIS...")
+
+        def _inspect():
+            try:
+                columns = inspect_jhcis_select_columns(
+                    hospital, jhcis_default, query
+                )
+                error = None
+            except Exception as caught_error:
+                columns = None
+                error = caught_error
+            try:
+                self.root.after(
+                    0, self._finish_mapping_column_extraction,
+                    request_id, query, columns, error, hospital
+                )
+            except tk.TclError:
+                pass
+
+        try:
+            threading.Thread(target=_inspect, daemon=True).start()
+        except RuntimeError as error:
+            self.mapping_column_loading = False
+            self.btn_extract_mapping_columns.configure(state=tk.NORMAL)
+            self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+            self.mapping_sql_text.configure(state=tk.NORMAL)
+            self.mapping_column_status_var.set(
+                f"เริ่มอ่าน Metadata ไม่สำเร็จ: {error}"
+            )
+            log_error(f"เริ่มอ่าน Metadata SQL Mapping ไม่สำเร็จ: {error}")
+
+    def _finish_mapping_column_extraction(
+        self, request_id, query, columns, error, hospital
+    ):
+        if request_id != self.mapping_column_request_id:
+            return
+        self.mapping_column_loading = False
+        self.btn_extract_mapping_columns.configure(state=tk.NORMAL)
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        self.mapping_sql_text.configure(state=tk.NORMAL)
+        if query != self.mapping_sql_text.get("1.0", "end-1c").strip():
+            self.mapping_column_status_var.set(
+                "SQL เปลี่ยนระหว่างอ่าน Metadata กรุณาดึงโครงสร้างใหม่"
+            )
+            return
+        if error is not None:
+            self.mapping_column_defs = []
+            self._render_mapping_columns([])
+            self.mapping_column_status_var.set(
+                f"ดึงโครงสร้างไม่สำเร็จ: {error}"
+            )
+            log_error(
+                f"ดึงโครงสร้าง SQL Mapping จาก JHCIS "
+                f"({hospital.get('code', '')}) ไม่สำเร็จ: {error}"
+            )
+            return
+
+        task_code = self.sql_mapping_entries["task_code"].get().strip().upper()
+        self.mapping_column_defs = []
+        for column in columns or []:
+            name = column["name"]
+            primary_key = (
+                name.casefold() in {"hospcode", "pcucodeperson", "pid"}
+                if task_code == "PERSON"
+                else name.casefold() == "id"
+            )
+            self.mapping_column_defs.append({
+                "name": name,
+                "mysql_type": column.get("mysql_type"),
+                "column_size": column.get("column_size"),
+                "type": suggested_column_type(
+                    column.get("mysql_type"), column.get("column_size")
+                ),
+                "primary_key": primary_key,
+            })
+        self._render_mapping_columns(self.mapping_column_defs)
+        self.mapping_column_status_var.set(
+            f"พบ {len(self.mapping_column_defs)} คอลัมน์จาก "
+            f"{hospital.get('name', hospital.get('code', 'JHCIS'))}"
+        )
+        self._invalidate_generated_mapping_scripts(
+            "ดึงโครงสร้างใหม่แล้ว กรุณาสร้างสคริปต์"
+        )
+
+    def _test_sql_mapping_form(self):
+        query = self.mapping_sql_text.get("1.0", "end-1c").strip()
+        try:
+            validate_read_only_select(query)
+        except ValueError as error:
+            self.mapping_form_status_var.set("Status: ERROR - SQL ไม่ถูกต้อง")
+            log_error(f"ทดสอบ SQL Mapping ไม่ผ่านการตรวจสอบ: {error}")
+            return
+        hospital = (
+            getattr(self, "mapping_hospital", None)
+            or self._get_mapping_hospital()
+        )
+        if hospital is None:
+            self.mapping_form_status_var.set(
+                "Status: ERROR - ไม่มี รพ.สต. สำหรับทดสอบ"
+            )
+            return
+        hospital = dict(hospital)
+        jhcis_default = dict(self.config.get("jhcis_default", {}))
+        self.mapping_test_request_id += 1
+        request_id = self.mapping_test_request_id
+        self.btn_test_mapping_sql.configure(state=tk.DISABLED)
+        self.mapping_form_status_var.set("กำลังทดสอบ SQL แบบอ่านอย่างเดียว...")
+
+        def _test():
+            try:
+                preview_person_sql(
+                    hospital, jhcis_default, query, max_rows=1
+                )
+                error = None
+            except Exception as caught_error:
+                error = caught_error
+            try:
+                self.root.after(
+                    0, self._finish_sql_mapping_test,
+                    request_id, hospital, error
+                )
+            except tk.TclError:
+                pass
+
+        try:
+            threading.Thread(target=_test, daemon=True).start()
+        except RuntimeError as error:
+            self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+            self.mapping_form_status_var.set(
+                "Status: ERROR - เริ่มการทดสอบไม่สำเร็จ"
+            )
+            log_error(f"เริ่มทดสอบ SQL Mapping ไม่สำเร็จ: {error}")
+
+    def _finish_sql_mapping_test(self, request_id, hospital, error):
+        if request_id != self.mapping_test_request_id:
+            return
+        self.btn_test_mapping_sql.configure(state=tk.NORMAL)
+        if error is not None:
+            self.mapping_form_status_var.set(
+                "Status: ERROR - SQL รันไม่ผ่านบน JHCIS"
+            )
+            log_error(
+                f"ทดสอบ SQL Mapping บน JHCIS "
+                f"({hospital.get('code', '')}) ไม่สำเร็จ: {error}"
+            )
+            return
+        self.mapping_form_status_var.set(
+            f"Status: OK - รันผ่านบน JHCIS "
+            f"({hospital.get('name', hospital.get('code', ''))})"
+        )
+
+    def _copy_generated_ddl(self, key):
+        generated = self.generated_mapping_scripts
+        if generated is None:
+            self.mapping_ddl_status_var.set("กรุณาสร้างสคริปต์ก่อนคัดลอก")
+            return
+        script = generated["scripts"][key]
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(script)
+        except tk.TclError as error:
+            self.mapping_ddl_status_var.set(f"คัดลอกไม่สำเร็จ: {error}")
+            log_error(f"คัดลอก DDL Mapping ไม่สำเร็จ: {error}")
+            return
+        self.mapping_ddl_status_var.set("คัดลอกสคริปต์ SQL แล้ว")
+
+    def _save_generated_ddl(self, key):
+        generated = self.generated_mapping_scripts
+        if generated is None:
+            self.mapping_ddl_status_var.set("กรุณาสร้างสคริปต์ก่อนบันทึก")
+            return
+        task_code = (
+            self.sql_mapping_entries["task_code"].get().strip().upper()
+            or "mapping"
+        )
+        output_path = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="บันทึกสคริปต์ SQL",
+            initialfile=f"{task_code}_{key}.sql",
+            defaultextension=".sql",
+            filetypes=(("SQL files", "*.sql"), ("All files", "*.*")),
+        )
+        if not output_path:
+            return
+        try:
+            with open(output_path, "w", encoding="utf-8") as output_file:
+                output_file.write(generated["scripts"][key] + "\n")
+        except OSError as error:
+            self.mapping_ddl_status_var.set(f"บันทึกไฟล์ไม่สำเร็จ: {error}")
+            log_error(f"บันทึก DDL Mapping ไปยังไฟล์ไม่สำเร็จ: {error}")
+            messagebox.showerror(
+                "บันทึกไฟล์ไม่สำเร็จ", str(error), parent=self.root
+            )
+            return
+        self.mapping_ddl_status_var.set(f"บันทึกสคริปต์แล้ว: {output_path}")
+
+    def _execute_generated_ddl(self, key):
+        generated = self.generated_mapping_scripts
+        if generated is None:
+            self.mapping_ddl_status_var.set("กรุณาสร้างสคริปต์ก่อนดำเนินการ")
+            return
+        target = "district" if key == "district" else "host"
+        target_name = "MySQL อำเภอ" if target == "district" else "Cloud DB"
+        warning = (
+            "\n\nข้อควรทราบ: Procedure นี้จะลบข้อมูลทั้งหมดใน Host Staging "
+            "หลังจากถูกเรียกใช้งาน"
+            if key == "host_procedure" else ""
+        )
+        if not messagebox.askyesno(
+            "ยืนยันการสร้างโครงสร้างฐานข้อมูล",
+            f"ต้องการรันสคริปต์แท็บนี้กับ {target_name} หรือไม่?\n"
+            "คำสั่ง DDL อาจเปลี่ยนแปลงโครงสร้างฐานข้อมูลและ MySQL "
+            "อาจ commit คำสั่งโดยอัตโนมัติ"
+            f"{warning}",
+            parent=self.root,
+        ):
+            return
+        if not self.sync_lock.acquire(blocking=False):
+            messagebox.showwarning(
+                "กำลังซิงค์ข้อมูล",
+                "ไม่สามารถรัน DDL ระหว่างที่มีงานซิงค์ทำงานอยู่ได้",
+                parent=self.root,
+            )
+            return
+
+        statements = generated["statements"][key]
+        execute_button = self.mapping_execute_buttons[key]
+        execute_button.configure(state=tk.DISABLED)
+        self.mapping_ddl_status_var.set(f"กำลังดำเนินการกับ {target_name}...")
+
+        def _execute():
+            try:
+                config = load_config()
+                execute_generated_ddl(target, statements, config)
+                error = None
+            except Exception as caught_error:
+                error = caught_error
+            finally:
+                self.sync_lock.release()
+            try:
+                self.root.after(
+                    0, self._finish_generated_ddl_execution,
+                    key, target_name, error
+                )
+            except tk.TclError:
+                pass
+
+        try:
+            threading.Thread(target=_execute, daemon=True).start()
+        except RuntimeError as error:
+            self.sync_lock.release()
+            execute_button.configure(state=tk.NORMAL)
+            self.mapping_ddl_status_var.set(
+                f"เริ่มคำสั่ง SQL ไม่สำเร็จ: {error}"
+            )
+            log_error(f"เริ่มรัน DDL Mapping ไม่สำเร็จ: {error}")
+
+    def _finish_generated_ddl_execution(self, key, target_name, error):
+        self.mapping_execute_buttons[key].configure(state=tk.NORMAL)
+        if error is not None:
+            self.mapping_ddl_status_var.set(
+                f"ดำเนินการกับ {target_name} ไม่สำเร็จ: {error}"
+            )
+            log_error(f"รัน DDL Mapping กับ {target_name} ไม่สำเร็จ: {error}")
+            messagebox.showerror(
+                "สร้างโครงสร้างไม่สำเร็จ", str(error), parent=self.root
+            )
+            return
+        self.mapping_ddl_status_var.set(
+            f"สร้างโครงสร้างบน {target_name} สำเร็จ"
+        )
+        self.toast_manager.show(
+            f"สร้างโครงสร้างบน {target_name} สำเร็จ", "success"
+        )
+
     def _refresh_sql_mappings(self):
         if self.sql_mapping_loading:
+            self.sql_mapping_refresh_pending = True
             return
         district_config = dict(self.config.get("district_db", {}))
         self.sql_mapping_request_id += 1
@@ -652,13 +1641,25 @@ class JHCISPersonSyncApp:
             except tk.TclError:
                 pass
 
-        threading.Thread(target=_load, daemon=True).start()
+        try:
+            threading.Thread(target=_load, daemon=True).start()
+        except RuntimeError as error:
+            self.sql_mapping_loading = False
+            self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+            self.sql_mapping_status_var.set(
+                f"เริ่มโหลด Mapping ไม่สำเร็จ: {error}"
+            )
+            log_error(f"เริ่มโหลด sql_mapping ไม่สำเร็จ: {error}")
 
     def _finish_sql_mapping_refresh(self, request_id, rows, error, focus_id=None):
         if request_id != self.sql_mapping_request_id:
             return
         self.sql_mapping_loading = False
         self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+        if self.sql_mapping_refresh_pending:
+            self.sql_mapping_refresh_pending = False
+            self.root.after_idle(self._refresh_sql_mappings)
+            return
         if error is not None:
             self.sql_mapping_loaded = False
             self.sql_mapping_status_var.set(f"โหลด Mapping ไม่สำเร็จ: {error}")
@@ -667,6 +1668,11 @@ class JHCISPersonSyncApp:
         self._render_sql_mappings(rows, focus_id)
 
     def _render_sql_mappings(self, rows, focus_id=None):
+        previous_selection = self.sql_mapping_tree.selection()
+        selected_id = (
+            str(focus_id) if focus_id is not None
+            else (previous_selection[0] if previous_selection else None)
+        )
         self.sql_mapping_rows = list(rows)
         self.sql_mapping_loaded = True
         for item in self.sql_mapping_tree.get_children():
@@ -682,45 +1688,76 @@ class JHCISPersonSyncApp:
                     row.get("task_code", ""),
                     row.get("task_name", ""),
                     row.get("local_source_table", ""),
-                    row.get("host_staging_table", ""),
-                    row.get("host_procedure_name", ""),
                     "ใช้งาน" if bool(row.get("is_active")) else "ปิดใช้งาน",
                     row.get("sort_order", 0),
-                    row.get("updated_at", ""),
                 ),
                 tags=("inactive",) if not bool(row.get("is_active")) else (),
             )
-            if focus_id is not None and mapping_id == str(focus_id):
+            if selected_id is not None and mapping_id == selected_id:
                 selected_item = mapping_id
         self.sql_mapping_tree.tag_configure("inactive", foreground="#888888")
         if selected_item is not None:
             self.sql_mapping_tree.selection_set(selected_item)
             self.sql_mapping_tree.focus(selected_item)
             self.sql_mapping_tree.see(selected_item)
+            self._on_sql_mapping_selection()
         else:
+            current_selection = self.sql_mapping_tree.selection()
+            if current_selection:
+                self.sql_mapping_tree.selection_remove(*current_selection)
             self._on_sql_mapping_selection()
         self.sql_mapping_status_var.set(f"โหลด Mapping แล้ว {len(rows)} รายการ")
 
     def _on_sql_mapping_selection(self, event=None):
-        state = (
-            tk.NORMAL if self.sql_mapping_tree.selection() else tk.DISABLED
+        selection = self.sql_mapping_tree.selection()
+        if not selection:
+            if not self.mapping_form_dirty:
+                self._reset_sql_mapping_form()
+            return
+        mapping_id = int(selection[0])
+        mapping = next(
+            (
+                row for row in self.sql_mapping_rows
+                if int(row.get("id", -1)) == mapping_id
+            ),
+            None,
         )
-        self.btn_edit_sql_mapping.configure(state=state)
+        if mapping is None:
+            return
+        if mapping_id == self.mapping_form_id and self.mapping_form_dirty:
+            return
+        if self.mapping_form_dirty and not messagebox.askyesno(
+            "ละทิ้งการแก้ไข",
+            "มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการละทิ้งและเปิด Mapping อื่นหรือไม่?",
+            parent=self.root,
+        ):
+            if self.mapping_form_id is not None:
+                self.sql_mapping_tree.selection_set(str(self.mapping_form_id))
+                self.sql_mapping_tree.focus(str(self.mapping_form_id))
+            else:
+                self.sql_mapping_tree.selection_remove(selection[0])
+            return
+        self._load_sql_mapping_form(mapping)
 
     def _on_sql_mapping_double_click(self, event):
         if self.sql_mapping_tree.identify_region(event.x, event.y) == "cell":
-            self._edit_sql_mapping()
+            self._on_sql_mapping_selection()
 
     def _add_sql_mapping(self):
-        self._open_sql_mapping_editor()
+        if self.mapping_form_dirty and not messagebox.askyesno(
+            "ละทิ้งการแก้ไข",
+            "มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการเริ่ม Mapping ใหม่หรือไม่?",
+            parent=self.root,
+        ):
+            return
+        self.sql_mapping_tree.selection_remove(
+            *self.sql_mapping_tree.selection()
+        )
+        self._reset_sql_mapping_form()
 
     def _edit_sql_mapping(self):
         selection = self.sql_mapping_tree.selection()
         if not selection:
-            messagebox.showwarning(
-                "เลือก Mapping", "กรุณาเลือกรายการ Mapping ที่ต้องการแก้ไข",
-                parent=self.root
-            )
             return
         mapping_id = int(selection[0])
         mapping = next(
@@ -736,7 +1773,275 @@ class JHCISPersonSyncApp:
                 parent=self.root
             )
             return
-        self._open_sql_mapping_editor(mapping)
+        if mapping_id != self.mapping_form_id:
+            self._load_sql_mapping_form(mapping)
+
+    def _save_sql_mapping_form(self):
+        if self.mapping_save_in_progress:
+            return
+        entries = self.sql_mapping_entries
+        task_code = entries["task_code"].get().strip().upper()
+        task_name = entries["task_name"].get().strip()
+        try:
+            sort_order = int(entries["sort_order"].get().strip() or 0)
+            if not task_code or not task_name:
+                raise ValueError("กรุณากรอกรหัสงานและชื่อข้อมูล")
+            for row in self.sql_mapping_rows:
+                if (
+                    str(row.get("task_code", "")).strip().upper() == task_code
+                    and int(row.get("id", -1)) != int(self.mapping_form_id or -1)
+                ):
+                    raise ValueError(f"รหัสงาน {task_code} มีอยู่แล้ว")
+        except ValueError as error:
+            messagebox.showerror("ข้อมูลไม่ถูกต้อง", str(error), parent=self.root)
+            return
+
+        updated_mapping = {
+            "id": self.mapping_form_id,
+            "task_code": task_code,
+            "task_name": task_name,
+            "jhcis_extract_sql": (
+                self.mapping_sql_text.get("1.0", "end-1c").strip() or None
+            ),
+            "local_source_table": entries["local_source_table"].get().strip(),
+            "host_staging_table": entries["host_staging_table"].get().strip(),
+            "host_procedure_name": entries["host_procedure_name"].get().strip(),
+            "is_active": self.sql_mapping_active_var.get(),
+            "sort_order": sort_order,
+        }
+        try:
+            district_config = get_district_db_config(load_config())
+        except (TypeError, ValueError) as error:
+            self.mapping_form_status_var.set(
+                f"อ่านค่าฐานข้อมูลอำเภอไม่สำเร็จ: {error}"
+            )
+            messagebox.showerror(
+                "ตั้งค่าฐานข้อมูลไม่ถูกต้อง", str(error), parent=self.root
+            )
+            return
+
+        self.mapping_save_in_progress = True
+        self.btn_save_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_delete_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_add_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_refresh_sql_mappings.configure(state=tk.DISABLED)
+        self.mapping_form_status_var.set("กำลังบันทึก Mapping...")
+
+        def _save():
+            try:
+                saved_id = save_sql_mapping(district_config, updated_mapping)
+                saved = True
+            except Exception as caught_error:
+                error = caught_error
+                saved_id = None
+                saved = False
+                log_error(f"บันทึก SQL Mapping {task_code} ไม่สำเร็จ: {error}")
+            if saved:
+                try:
+                    rows = get_sql_mappings(district_config)
+                    error = None
+                except Exception as caught_error:
+                    rows = None
+                    error = caught_error
+                    log_error(
+                        f"บันทึก SQL Mapping {task_code} แล้ว "
+                        f"แต่โหลดรายการกลับมาไม่สำเร็จ: {error}"
+                    )
+            try:
+                self.root.after(
+                    0, self._finish_sql_mapping_form_save,
+                    task_code, saved, saved_id, rows, error
+                )
+            except tk.TclError:
+                pass
+
+        try:
+            threading.Thread(target=_save, daemon=True).start()
+        except RuntimeError as error:
+            self.mapping_save_in_progress = False
+            self.btn_save_sql_mapping.configure(state=tk.NORMAL)
+            self.btn_delete_sql_mapping.configure(
+                state=tk.NORMAL if self.mapping_form_id is not None else tk.DISABLED
+            )
+            self.btn_add_sql_mapping.configure(state=tk.NORMAL)
+            self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+            self.mapping_form_status_var.set(
+                f"เริ่มบันทึก Mapping ไม่สำเร็จ: {error}"
+            )
+            log_error(f"เริ่มบันทึก SQL Mapping ไม่สำเร็จ: {error}")
+
+    def _finish_sql_mapping_form_save(
+        self, task_code, saved, saved_id, rows, error
+    ):
+        self.mapping_save_in_progress = False
+        self.btn_save_sql_mapping.configure(state=tk.NORMAL)
+        self.btn_add_sql_mapping.configure(state=tk.NORMAL)
+        self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+        self.btn_delete_sql_mapping.configure(
+            state=tk.NORMAL if self.mapping_form_id is not None else tk.DISABLED
+        )
+        if not saved:
+            self.mapping_form_status_var.set(f"บันทึกไม่สำเร็จ: {error}")
+            messagebox.showerror(
+                "บันทึก Mapping ไม่สำเร็จ", str(error), parent=self.root
+            )
+            return
+        if error is not None:
+            self.mapping_form_dirty = False
+            if self.mapping_form_id is None and saved_id:
+                self.mapping_form_id = int(saved_id)
+            self.btn_delete_sql_mapping.configure(
+                state=tk.NORMAL if self.mapping_form_id is not None else tk.DISABLED
+            )
+            self.sql_mapping_loaded = False
+            self.mapping_form_status_var.set(
+                f"บันทึกแล้ว แต่โหลดรายการกลับมาไม่สำเร็จ: {error}"
+            )
+            messagebox.showwarning(
+                "บันทึกแล้ว",
+                f"บันทึก Mapping แล้ว แต่โหลดรายการกลับมาไม่สำเร็จ:\n{error}",
+                parent=self.root,
+            )
+            self._refresh_sql_mappings()
+            return
+
+        saved_row = next(
+            (
+                row for row in rows
+                if str(row.get("task_code", "")).strip().upper() == task_code
+            ),
+            None,
+        )
+        if saved_row is None:
+            self.sql_mapping_loaded = False
+            self.mapping_form_status_var.set(
+                "บันทึกแล้ว แต่ไม่พบ Mapping ในรายการที่โหลดกลับมา"
+            )
+            messagebox.showwarning(
+                "ตรวจสอบรายการ",
+                "บันทึกแล้ว แต่ไม่พบ Mapping ในรายการที่โหลดกลับมา",
+                parent=self.root,
+            )
+            return
+        self.mapping_form_dirty = False
+        self._render_sql_mappings(rows, saved_row.get("id"))
+        self.mapping_form_status_var.set(f"บันทึก Mapping {task_code} แล้ว")
+        self.toast_manager.show(f"บันทึก Mapping {task_code} แล้ว", "success")
+
+    def _delete_sql_mapping_form(self):
+        if self.mapping_save_in_progress:
+            return
+        mapping_id = self.mapping_form_id
+        if mapping_id is None:
+            self.mapping_form_status_var.set("เลือก Mapping ที่ต้องการลบก่อน")
+            return
+        stored_mapping = next(
+            (
+                row for row in self.sql_mapping_rows
+                if int(row.get("id", -1)) == mapping_id
+            ),
+            {},
+        )
+        task_code = str(stored_mapping.get("task_code", "")).strip()
+        unsaved_warning = (
+            "\nการแก้ไขที่ยังไม่บันทึกจะถูกละทิ้ง"
+            if self.mapping_form_dirty else ""
+        )
+        if not messagebox.askyesno(
+            "ยืนยันการลบ Mapping",
+            f"ต้องการลบ Mapping {task_code} หรือไม่?\n"
+            "การลบนี้ไม่ลบข้อมูลใน District DB หรือ Cloud DB"
+            f"{unsaved_warning}",
+            parent=self.root,
+        ):
+            return
+        try:
+            district_config = get_district_db_config(load_config())
+        except (TypeError, ValueError) as error:
+            self.mapping_form_status_var.set(
+                f"อ่านค่าฐานข้อมูลอำเภอไม่สำเร็จ: {error}"
+            )
+            return
+        self.mapping_save_in_progress = True
+        self.btn_delete_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_save_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_add_sql_mapping.configure(state=tk.DISABLED)
+        self.btn_refresh_sql_mappings.configure(state=tk.DISABLED)
+        self.mapping_form_status_var.set("กำลังลบ Mapping...")
+
+        def _delete():
+            try:
+                delete_sql_mapping(district_config, mapping_id)
+                deleted = True
+            except Exception as caught_error:
+                error = caught_error
+                rows = None
+                deleted = False
+                log_error(f"ลบ SQL Mapping {task_code} ไม่สำเร็จ: {error}")
+            if deleted:
+                try:
+                    rows = get_sql_mappings(district_config)
+                    error = None
+                except Exception as caught_error:
+                    rows = None
+                    error = caught_error
+                    log_error(
+                        f"ลบ SQL Mapping {task_code} แล้ว "
+                        f"แต่โหลดรายการกลับมาไม่สำเร็จ: {error}"
+                    )
+            try:
+                self.root.after(
+                    0, self._finish_sql_mapping_form_delete,
+                    task_code, deleted, rows, error
+                )
+            except tk.TclError:
+                pass
+
+        try:
+            threading.Thread(target=_delete, daemon=True).start()
+        except RuntimeError as error:
+            self.mapping_save_in_progress = False
+            self.btn_delete_sql_mapping.configure(state=tk.NORMAL)
+            self.btn_save_sql_mapping.configure(state=tk.NORMAL)
+            self.btn_add_sql_mapping.configure(state=tk.NORMAL)
+            self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+            self.mapping_form_status_var.set(
+                f"เริ่มลบ Mapping ไม่สำเร็จ: {error}"
+            )
+            log_error(f"เริ่มลบ SQL Mapping ไม่สำเร็จ: {error}")
+
+    def _finish_sql_mapping_form_delete(
+        self, task_code, deleted, rows, error
+    ):
+        self.mapping_save_in_progress = False
+        self.btn_save_sql_mapping.configure(state=tk.NORMAL)
+        self.btn_add_sql_mapping.configure(state=tk.NORMAL)
+        self.btn_refresh_sql_mappings.configure(state=tk.NORMAL)
+        if not deleted:
+            self.btn_delete_sql_mapping.configure(state=tk.NORMAL)
+            self.mapping_form_status_var.set(f"ลบไม่สำเร็จ: {error}")
+            messagebox.showerror(
+                "ลบ Mapping ไม่สำเร็จ", str(error), parent=self.root
+            )
+            return
+        if error is not None:
+            self.mapping_form_dirty = False
+            self.sql_mapping_loaded = False
+            self.mapping_form_status_var.set(
+                f"ลบแล้ว แต่โหลดรายการกลับมาไม่สำเร็จ: {error}"
+            )
+            self._reset_sql_mapping_form()
+            messagebox.showwarning(
+                "ลบแล้ว",
+                f"ลบ Mapping แล้ว แต่โหลดรายการกลับมาไม่สำเร็จ:\n{error}",
+                parent=self.root,
+            )
+            self._refresh_sql_mappings()
+            return
+        self.mapping_form_dirty = False
+        self._render_sql_mappings(rows)
+        self.mapping_form_status_var.set(f"ลบ Mapping {task_code} แล้ว")
+        self.toast_manager.show(f"ลบ Mapping {task_code} แล้ว", "success")
 
     def _open_sql_mapping_editor(self, mapping=None):
         original = dict(mapping or {})
@@ -1198,8 +2503,7 @@ class JHCISPersonSyncApp:
     def _on_main_notebook_tab_changed(self, event=None):
         selected_tab = self.content_notebook.select()
         if selected_tab == str(self.mapping_tab):
-            if not self.sql_mapping_loaded:
-                self._refresh_sql_mappings()
+            self._refresh_sql_mappings()
         if selected_tab == str(self.settings_tab):
             self._refresh_database_settings_fields()
             self._check_database_connections_automatically()
@@ -2388,6 +3692,9 @@ class JHCISPersonSyncApp:
         self.vpn_check_running = True
         self.btn_check_vpn.config(state=tk.DISABLED)
         self.status_var.set("กำลังตรวจสอบสถานะ VPN...")
+        self._queue_process_monitor(
+            f"เริ่มตรวจสอบ VPN ของสถานบริการ {len(hospitals)} แห่ง"
+        )
 
         def _check():
             for code, ip, port_value in hospitals:
@@ -2395,6 +3702,10 @@ class JHCISPersonSyncApp:
                     port = get_hospital_port({"port": port_value})
                     ok = check_vpn_port(ip, port, timeout=2)
                     status = "🟢 ออนไลน์" if ok else "🔴 ออฟไลน์"
+                    self._queue_process_monitor(
+                        f"[{code}] VPN {ip}:{port} {status}",
+                        logging.INFO if ok else logging.WARNING,
+                    )
                 except (TypeError, ValueError, OSError) as error:
                     log_error(
                         f"[{code}] ตรวจสอบ VPN {ip}:{port_value} ไม่สำเร็จ: {error}"
@@ -2418,6 +3729,7 @@ class JHCISPersonSyncApp:
         self.vpn_check_running = False
         self.btn_check_vpn.config(state=tk.NORMAL)
         self.status_var.set("ตรวจสอบ VPN เรียบร้อยแล้ว")
+        self._queue_process_monitor("ตรวจสอบ VPN เสร็จสิ้น")
 
     # =====================================================================
     # เปิดหน้าตั้งค่า Auto-Schedule
@@ -2592,6 +3904,12 @@ class JHCISPersonSyncApp:
         except tk.TclError:
             pass
 
+    def _queue_data_flow_state(self, stage, text, running=False):
+        try:
+            self.root.after(0, self._set_data_flow_status, stage, text, running)
+        except tk.TclError:
+            pass
+
     def _queue_hospital_flow_status(self, code, text):
         try:
             self.root.after(0, self._set_hospital_flow_status, code, text)
@@ -2619,6 +3937,7 @@ class JHCISPersonSyncApp:
         self._set_sync_action_buttons(tk.DISABLED)
         self._set_data_flow_status(stage, initial_status, running=True)
         self.status_var.set(initial_status)
+        self._queue_process_monitor(f"เริ่มงาน: {initial_status}")
 
         def _worker():
             try:
@@ -2649,6 +3968,10 @@ class JHCISPersonSyncApp:
         self._set_data_flow_status(stage, summary)
         self._set_sync_action_buttons(tk.NORMAL)
         self.status_var.set(summary)
+        self._queue_process_monitor(
+            f"{'สำเร็จ' if success else 'สิ้นสุดโดยมีข้อผิดพลาด'}: {summary}",
+            logging.INFO if success else logging.ERROR,
+        )
         detail_lines = details[:15]
         if len(details) > len(detail_lines):
             detail_lines.append(f"... และอีก {len(details) - len(detail_lines)} รายการ")
@@ -2667,8 +3990,9 @@ class JHCISPersonSyncApp:
             "กำลังเริ่มดึงข้อมูล JHCIS เข้า ฐานอำเภอ..."
         )
 
-    def _perform_jhcis_to_district(self):
-        config = load_config()
+    def _perform_jhcis_to_district(self, config=None, mappings=None):
+        if config is None:
+            config = load_config()
         district_db = get_district_db_config(config)
         jhcis_default = dict(config.get("jhcis_default", {}))
         hostatom_db = dict(config.get("hostatom_db", {}))
@@ -2680,10 +4004,9 @@ class JHCISPersonSyncApp:
         if not hospitals:
             raise ValueError("กรุณาเลือก รพ.สต. ลูกข่ายอย่างน้อย 1 แห่ง")
 
-        mappings = [
-            row for row in get_sql_mappings(district_db)
-            if bool(row.get("is_active"))
-        ]
+        if mappings is None:
+            mappings = get_sql_mappings(district_db)
+        mappings = [row for row in mappings if bool(row.get("is_active"))]
         if not mappings:
             raise ValueError("ไม่พบ Mapping ที่เปิดใช้งานใน sql_mapping")
 
@@ -2774,17 +4097,16 @@ class JHCISPersonSyncApp:
             "กำลังส่งข้อมูลจากฐานอำเภอไป Cloud DB..."
         )
 
-    def _perform_district_to_cloud(self):
-        saved_config = load_config()
+    def _perform_district_to_cloud(self, config=None, mappings=None):
+        saved_config = load_config() if config is None else config
         district_db = get_district_db_config(saved_config)
         config = {
             "district_db": district_db,
             "hostatom_db": dict(saved_config.get("hostatom_db", {})),
         }
-        mappings = [
-            row for row in get_sql_mappings(district_db)
-            if bool(row.get("is_active"))
-        ]
+        if mappings is None:
+            mappings = get_sql_mappings(district_db)
+        mappings = [row for row in mappings if bool(row.get("is_active"))]
         if not mappings:
             raise ValueError("ไม่พบ Mapping ที่เปิดใช้งานใน sql_mapping")
 
@@ -2885,74 +4207,183 @@ class JHCISPersonSyncApp:
             return
 
         self._set_sync_action_buttons(tk.DISABLED)
-        self.status_var.set("กำลังดึงข้อมูลและส่งขึ้น HostAtom...")
+        first_status = "ขั้นตอนที่ 1/2: กำลังดึงข้อมูล JHCIS เข้า ฐานอำเภอ..."
+        self._set_data_flow_status("jhcis_to_district", first_status, running=True)
+        self._set_data_flow_status(
+            "district_to_cloud",
+            "รอขั้นตอน JHCIS → ฐานอำเภอ",
+        )
+        self.status_var.set("กำลังซิงค์ Person → Cloud DB (ขั้นตอนที่ 1/2)...")
+        self._queue_process_monitor(
+            "เริ่มซิงค์ Person → Cloud DB: JHCIS → ฐานอำเภอ → Cloud DB"
+        )
 
-        def _sync():
+        def _sync_pipeline():
+            jhcis_result = (
+                False,
+                "ขั้นตอน JHCIS → ฐานอำเภอ ยังไม่เริ่ม",
+                [],
+            )
+            cloud_result = (
+                False,
+                "ข้ามขั้นตอนฐานอำเภอ → Cloud DB เนื่องจากขั้นตอนแรกไม่สำเร็จ",
+                [],
+            )
             try:
-                jd = self.config.get("jhcis_default", {})
-                hd = self.config.get("hostatom_db", {})
-                hospitals = self.config.get("hospitals", [])
-                batch_size = hd.get("batch_size", 500)
-
-                if not hospitals:
-                    self.root.after(0, lambda: messagebox.showwarning("คำเตือน", "ยังไม่มีรายชื่อ รพ.สต. ในระบบ"))
-                    return
-
-                results = sync_hospitals(hospitals, jd, hd, batch_size=batch_size, selected_only=True)
-
-                total_success = sum(1 for r in results if r["success"])
-                total_count = sum(r["count"] for r in results if r["success"])
-                total_hospitals = len(results)
-
-                for r in results:
-                    code = r["hospital"].get("code", "")
-                    vpn = "🟢 ออนไลน์" if r["success"] else "🔴 ออฟไลน์"
-                    self.root.after(0, lambda c=code, s=vpn, m=r["message"]: self._update_tree_status(c, s, m))
-
-                self.root.after(0, lambda: self._manual_sync_finished(total_success, total_hospitals, total_count, results))
-
-                notif_cfg = self.config.get("notification", {})
-                msg_lines = [
-                    "📊 สรุปผลการซิงค์แบบ Manual",
-                    f"เวลา: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                    f"จำนวน รพ.สต.: {total_hospitals} แห่ง",
-                    f"สำเร็จ: {total_success} แห่ง",
-                    f"จำนวนรายการที่อัปเดต: {total_count} รายการ",
+                config = load_config()
+                district_db = get_district_db_config(config)
+                mappings = [
+                    row for row in get_sql_mappings(district_db)
+                    if bool(row.get("is_active"))
                 ]
-                send_notification(self.config, "\n".join(msg_lines), is_auto=False)
+                if not mappings:
+                    raise ValueError("ไม่พบ Mapping ที่เปิดใช้งานใน sql_mapping")
 
-            except Exception as e:
-                err = f"เกิดข้อผิดพลาดในการซิงค์: {str(e)}"
-                log_error(err)
-                self.root.after(0, lambda: messagebox.showerror("ผิดพลาด", err))
-                self.root.after(0, lambda: self.status_var.set("ซิงค์ล้มเหลว"))
-            finally:
-                self.root.after(
-                    0, lambda: self._set_sync_action_buttons(tk.NORMAL)
+                try:
+                    jhcis_result = self._perform_jhcis_to_district(
+                        config=config,
+                        mappings=mappings,
+                    )
+                except Exception as error:
+                    jhcis_result = (
+                        False,
+                        f"JHCIS → ฐานอำเภอล้มเหลว: {error}",
+                        [str(error)],
+                    )
+                    log_error(f"[Person Sync] JHCIS → ฐานอำเภอล้มเหลว: {error}")
+
+                self._queue_data_flow_state(
+                    "jhcis_to_district",
+                    jhcis_result[1],
                 )
+                if jhcis_result[0]:
+                    cloud_status = "ขั้นตอนที่ 2/2: กำลังส่งข้อมูลจากฐานอำเภอไป Cloud DB..."
+                    self._queue_data_flow_state(
+                        "district_to_cloud",
+                        cloud_status,
+                        running=True,
+                    )
+                    try:
+                        cloud_result = self._perform_district_to_cloud(
+                            config=config,
+                            mappings=mappings,
+                        )
+                    except Exception as error:
+                        cloud_result = (
+                            False,
+                            f"ฐานอำเภอ → Cloud DB ล้มเหลว: {error}",
+                            [str(error)],
+                        )
+                        log_error(
+                            f"[Person Sync] ฐานอำเภอ → Cloud DB ล้มเหลว: {error}"
+                        )
+                else:
+                    cloud_result = (
+                        False,
+                        "ข้ามขั้นตอนฐานอำเภอ → Cloud DB เนื่องจาก JHCIS → ฐานอำเภอไม่สำเร็จ",
+                        [],
+                    )
+                self._queue_data_flow_state(
+                    "district_to_cloud",
+                    cloud_result[1],
+                )
+
+                overall_success = jhcis_result[0] and cloud_result[0]
+                notification = "\n".join((
+                    "สรุปการซิงค์ Person → Cloud DB",
+                    f"ผลรวม: {'สำเร็จ' if overall_success else 'ไม่สำเร็จ'}",
+                    f"ขั้นตอนที่ 1: {jhcis_result[1]}",
+                    f"ขั้นตอนที่ 2: {cloud_result[1]}",
+                ))
+                try:
+                    send_notification(self.config, notification, is_auto=False)
+                except Exception as error:
+                    log_error(f"[Person Sync] ส่งการแจ้งเตือนไม่สำเร็จ: {error}")
+                    self._queue_process_monitor(
+                        f"ส่งการแจ้งเตือนไม่สำเร็จ: {error}",
+                        logging.ERROR,
+                    )
+            except Exception as error:
+                jhcis_result = (
+                    False,
+                    f"เตรียมขั้นตอน JHCIS → ฐานอำเภอไม่สำเร็จ: {error}",
+                    [str(error)],
+                )
+                cloud_result = (
+                    False,
+                    "ข้ามขั้นตอนฐานอำเภอ → Cloud DB เนื่องจากขั้นตอนแรกไม่สำเร็จ",
+                    [],
+                )
+                log_error(f"[Person Sync] เตรียม pipeline ไม่สำเร็จ: {error}")
+                self._queue_data_flow_state(
+                    "jhcis_to_district",
+                    jhcis_result[1],
+                )
+                self._queue_data_flow_state(
+                    "district_to_cloud",
+                    cloud_result[1],
+                )
+            finally:
                 self.sync_lock.release()
+            try:
+                self.root.after(
+                    0,
+                    self._manual_sync_finished,
+                    jhcis_result,
+                    cloud_result,
+                )
+            except tk.TclError:
+                pass
 
         try:
-            threading.Thread(target=_sync, daemon=True).start()
+            threading.Thread(target=_sync_pipeline, daemon=True).start()
         except RuntimeError as error:
             self.sync_lock.release()
+            self._set_data_flow_status(
+                "jhcis_to_district",
+                f"เริ่มซิงค์ไม่สำเร็จ: {error}",
+            )
+            self._set_data_flow_status(
+                "district_to_cloud",
+                "ไม่ได้เริ่ม เนื่องจากไม่สามารถเริ่มงานซิงค์ได้",
+            )
             self._set_sync_action_buttons(tk.NORMAL)
-            self.status_var.set("เริ่มซิงค์ Manual ไม่สำเร็จ")
-            log_error(f"เริ่มเธรด Manual Sync ไม่สำเร็จ: {error}")
+            self.status_var.set("เริ่มซิงค์ Person → Cloud DB ไม่สำเร็จ")
+            log_error(f"เริ่มเธรด Person Sync ไม่สำเร็จ: {error}")
             messagebox.showerror(
                 "เริ่มซิงค์ไม่สำเร็จ", str(error), parent=self.root
             )
 
-    def _manual_sync_finished(self, total_success, total_hospitals, total_count, results):
-        self.status_var.set(f"ซิงค์ Manual เสร็จ: สำเร็จ {total_success}/{total_hospitals} แห่ง")
-        detail_lines = [f"• {r['hospital'].get('name', '')} ({r['hospital'].get('code', '')}): {r['message']}" for r in results]
-        detail = "\n".join(detail_lines)
-        msg = (f"ซิงค์ข้อมูล Person เรียบร้อยแล้ว\n\n"
-               f"จำนวน รพ.สต.: {total_hospitals} แห่ง\n"
-               f"สำเร็จ: {total_success} แห่ง\n"
-               f"จำนวนรายการที่อัปเดต: {total_count} รายการ\n\n"
-               f"รายละเอียด:\n{detail}")
-        messagebox.showinfo("ผลการซิงค์ (Manual)", msg)
+    def _manual_sync_finished(self, jhcis_result, cloud_result):
+        overall_success = jhcis_result[0] and cloud_result[0]
+        self._set_data_flow_status("jhcis_to_district", jhcis_result[1])
+        self._set_data_flow_status("district_to_cloud", cloud_result[1])
+        result_text = "สำเร็จ" if overall_success else "ไม่สำเร็จ"
+        summary = f"ซิงค์ Person → Cloud DB {result_text}"
+        self.status_var.set(summary)
+        self._queue_process_monitor(
+            f"{summary}; ขั้นตอน 1: {jhcis_result[1]}; "
+            f"ขั้นตอน 2: {cloud_result[1]}",
+            logging.INFO if overall_success else logging.ERROR,
+        )
+        self._set_sync_action_buttons(tk.NORMAL)
+
+        detail_lines = [
+            f"ขั้นตอนที่ 1 — JHCIS → ฐานอำเภอ: {jhcis_result[1]}",
+            *jhcis_result[2],
+            f"ขั้นตอนที่ 2 — ฐานอำเภอ → Cloud DB: {cloud_result[1]}",
+            *cloud_result[2],
+        ]
+        visible_details = detail_lines[:15]
+        if len(detail_lines) > len(visible_details):
+            visible_details.append(
+                f"... และอีก {len(detail_lines) - len(visible_details)} รายการ"
+            )
+        message = summary + "\n\n" + "\n".join(visible_details)
+        if overall_success:
+            messagebox.showinfo("ผลการซิงค์ Person", message, parent=self.root)
+        else:
+            messagebox.showwarning("ผลการซิงค์ Person", message, parent=self.root)
 
     # =====================================================================
     # ปิดโปรแกรม
@@ -2968,6 +4399,13 @@ class JHCISPersonSyncApp:
             self.district_sync_window.shutdown()
         self._stop_scheduler()
         self._cancel_database_status_refresh()
+        if self._process_monitor_after_id is not None:
+            self.root.after_cancel(self._process_monitor_after_id)
+            self._process_monitor_after_id = None
+        if self._process_monitor_handler is not None:
+            logging.getLogger().removeHandler(self._process_monitor_handler)
+            self._process_monitor_handler.close()
+            self._process_monitor_handler = None
         for job in (self.vpn_blink_job,):
             if job is not None:
                 self.root.after_cancel(job)
