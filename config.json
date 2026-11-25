@@ -66,6 +66,116 @@
       "database": "jhcisdb",
       "user": "root",
       "password": "123456"
+    },
+    {
+      "code": "09492",
+      "name": "รพ.สต.ตาแปด",
+      "ip": "26.101.119.174",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09493",
+      "name": "รพ.สต.เกาะสะบ้า",
+      "ip": "26.111.64.252",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09494",
+      "name": "รพ.สต.ลำไพล",
+      "ip": "26.195.142.199",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09495",
+      "name": "รพ.สต.ท่าไทร",
+      "ip": "26.190.194.227",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09496",
+      "name": "รพ.สต.ท่าม่วง",
+      "ip": "26.203.244.53",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09497",
+      "name": "รพ.สต.พรุชิง",
+      "ip": "26.190.166.95",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09498",
+      "name": "รพ.สต.วังใหญ่",
+      "ip": "26.190.61.100",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "09500",
+      "name": "รพ.สต.ท่าแมงลัก",
+      "ip": "26.89.120.22",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "11915",
+      "name": "รพ.สต.ทุ่งโดน",
+      "ip": "26.143.122.230",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "15107",
+      "name": "เวช 2",
+      "ip": "26.230.48.94",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
+    },
+    {
+      "code": "15109",
+      "name": "เวช 1",
+      "ip": "26.99.83.97",
+      "database": "jhcisdb",
+      "port": 3333,
+      "user": "root",
+      "password": "123456",
+      "selected": true
     }
   ],
   "person_sql": "SELECT\n*\nFROM `person`"
