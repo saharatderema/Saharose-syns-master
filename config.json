@@ -1,4 +1,5 @@
 {
+  "app_version": "1.0.0",
   "district_db": {
     "host": "127.0.0.1",
     "database": "district_db",
@@ -16,7 +17,7 @@
   },
   "hostatom_db": {
     "host": "27.254.134.24",
-    "database": "ffs",
+    "database": "thephad_eds",
     "user": "thephad_thephad",
     "password": "14sYR2xk1u",
     "port": 3306,

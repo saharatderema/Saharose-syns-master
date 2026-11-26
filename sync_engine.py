@@ -21,18 +21,40 @@ from mysql.connector.constants import FieldType
 
 from app_paths import get_app_dir, get_resource_path
 
-LOG_FILE = os.path.join(get_app_dir(), "sync.log")
 CONFIG_FILE = os.path.join(get_app_dir(), "config.json")
 SYNC_SNAPSHOT_TABLE = "app_sync_row_snapshot"
 SYNC_BASELINE_TABLE = "app_sync_baseline"
 SYNC_MODES = {"all", "new", "updated"}
 
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    encoding="utf-8"
-)
+# Logging will be configured at runtime in main.py
+# LOG_FILE is computed at runtime to ensure correct path in frozen executable
+def get_log_file():
+    return os.path.join(get_app_dir(), "sync.log")
+
+def setup_logging():
+    """Configure logging for the application. Call this once at startup."""
+    log_file = get_log_file()
+    # Remove any existing handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        handler.close()
+    
+    # Create file handler with explicit UTF-8 encoding
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    
+    # Configure root logger
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+    
+    # Also log to console if available (for debug builds)
+    if sys.stdout is not None:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        root_logger.addHandler(console_handler)
 
 
 def log_info(msg):

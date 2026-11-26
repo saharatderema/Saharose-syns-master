@@ -12,15 +12,10 @@ import sys
 import requests
 
 from app_paths import get_app_dir
+from sync_engine import get_log_file, setup_logging
 
-LOG_FILE = os.path.join(get_app_dir(), "sync.log")
-
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    encoding="utf-8"
-)
+# Configure logging at module import time for notifier
+setup_logging()
 
 
 def log_info(msg):

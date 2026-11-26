@@ -32,7 +32,7 @@ class DistrictSyncWindow:
         self.app = app
         self.root = app.root
         self.win = ctk.CTkToplevel(self.root)
-        self.win.title("District Dynamic Data Sync Manager")
+        self.win.title(f"SAHARose Sync Master v{self.app.config.get('app_version', '1.0.0')} - District Dynamic Data Sync Manager")
         minimum_width = min(1000, max(320, self.win.winfo_screenwidth() - 40))
         minimum_height = min(650, max(240, self.win.winfo_screenheight() - 60))
         self.win.minsize(minimum_width, minimum_height)
@@ -846,7 +846,7 @@ class DistrictSyncWindow:
         uploaded_count = sum(result["count"] for result in results if result["success"])
         mode = "อัตโนมัติ" if is_auto else "Manual"
         lines = [
-            f"สรุปผล District Sync {mode}",
+            f"SAHARose Sync Master v{self.app.config.get('app_version', '1.0.0')} - สรุปผล District Sync {mode}",
             f"เวลา: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             f"งานทั้งหมด: {len(results)}",
             f"สำเร็จ: {success_count}",

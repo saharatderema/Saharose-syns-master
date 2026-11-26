@@ -1,0 +1,29 @@
+SAHARose Sync Master v1.0.0 - Manual
+==================================
+
+Files:
+1. SAHARose_Sync_Master_v1.0.0.exe
+2. config.json
+3. setup_district_db.sql
+4. setup_hostatom_db.sql
+5. Manual.txt
+
+Install:
+1. Copy folder to target
+2. Edit config.json
+3. Run setup_district_db.sql on District MySQL
+4. Import setup_hostatom_db.sql on HostAtom
+5. Enable Remote MySQL in DirectAdmin
+6. Run .exe
+
+Auto-start: Checkbox in Control tab or shell:startup
+
+Troubleshooting:
+- Config not saving: ensure config.json in same folder as .exe
+- HostAtom connect fail: check Remote MySQL in DirectAdmin
+- VPN offline: check Radmin VPN, IP, port 3333
+- MySQL gone away: reduce batch_size
+- Thai charset: use utf8mb4
+
+Dev: Saharat D. / สสอ.เทพา
+Built: Python 3.11, CustomTkinter, PyInstaller

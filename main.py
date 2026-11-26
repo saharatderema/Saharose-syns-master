@@ -47,7 +47,7 @@ from sync_engine import (
     get_sql_mappings, save_sql_mapping, delete_sql_mapping,
     inspect_jhcis_select_columns, execute_generated_ddl,
     run_sync_task, sync_jhcis_to_district,
-    log_info, log_error
+    log_info, log_error, setup_logging
 )
 from ddl_generator import (
     SUPPORTED_COLUMN_TYPES, generate_mapping_scripts, suggested_column_type
@@ -71,6 +71,7 @@ from ui_theme import (
 
 CONFIG_FILE = "config.json"
 APP_VERSION = "1.0.0"
+APP_NAME = "SAHARose Sync Master"
 PERSON_MAPPING_FIELDS = (
     "pcucodeperson",
     "pid",
@@ -146,7 +147,7 @@ class JHCISPersonSyncApp:
     def __init__(self, root):
         self.root = root
         self.root.title(
-            f"SAHARose Sync Master - Version {APP_VERSION} "
+            f"SAHARose Sync Master v{APP_VERSION} "
             "(ระบบลิงค์ข้อมูลอัตโนมัติ)"
         )
         minimum_width = min(960, max(320, self.root.winfo_screenwidth() - 40))
@@ -661,7 +662,7 @@ class JHCISPersonSyncApp:
         create_title_label(frame, "นายสหรัต เดเระมะ").pack(pady=VSpacing.XS)
         create_muted_label(frame, "ตำแหน่งนักวิชาการคอมพิวเตอร์ชำนาญการ").pack(pady=VSpacing.XS)
         create_muted_label(frame, "สสอ.เทพา").pack(pady=(VSpacing.XS, VSpacing.MD))
-        create_muted_label(frame, f"Version {APP_VERSION}").pack(pady=(VSpacing.SM, 0))
+        create_muted_label(frame, f"{APP_NAME} v{APP_VERSION}").pack(pady=(VSpacing.SM, 0))
 
     def _add_database_setting(
         self, parent, label, value, width, show="", row=0, column=0
@@ -4203,7 +4204,7 @@ class JHCISPersonSyncApp:
                 self.root.after(0, lambda c=code, s=vpn, m=r["message"]: self._update_tree_status(c, s, m))
 
             msg_lines = [
-                "📊 สรุปผลการซิงค์อัตโนมัติ",
+                f"📊 {APP_NAME} v{APP_VERSION} - สรุปผลการซิงค์อัตโนมัติ",
                 f"เวลา: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 f"จำนวน รพ.สต.: {len(results)} แห่ง",
                 f"สำเร็จ: {total_success} แห่ง",
@@ -4324,7 +4325,7 @@ class JHCISPersonSyncApp:
 
                 overall_success = jhcis_result[0] and cloud_result[0]
                 notification = "\n".join((
-                    "สรุปการซิงค์ Person → Cloud DB",
+                    f"{APP_NAME} v{APP_VERSION} - สรุปการซิงค์ Person → Cloud DB",
                     f"ผลรวม: {'สำเร็จ' if overall_success else 'ไม่สำเร็จ'}",
                     f"ขั้นตอนที่ 1: {jhcis_result[1]}",
                     f"ขั้นตอนที่ 2: {cloud_result[1]}",
@@ -4447,6 +4448,9 @@ class JHCISPersonSyncApp:
 
 
 def main():
+    # Configure logging first (must be done after chdir in frozen mode)
+    setup_logging()
+    
     root = ctk.CTk()
     setup_default_fonts(root)
     app = JHCISPersonSyncApp(root)
@@ -4454,4 +4458,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback
+        error_log = os.path.join(get_app_dir(), "startup_error.log")
+        with open(error_log, "w", encoding="utf-8") as f:
+            f.write(f"Startup error at {datetime.now()}:\n")
+            f.write(traceback.format_exc())
+        # Also try to show error in a message box if tkinter is available
+        try:
+            import tkinter.messagebox as mb
+            mb.showerror("Startup Error", f"An error occurred during startup:\n\n{e}\n\nDetails saved to {error_log}")
+        except:
+            pass
+        sys.exit(1)
